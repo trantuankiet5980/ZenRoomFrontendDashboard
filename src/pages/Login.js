@@ -4,6 +4,8 @@ import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useState } from "react";
 import logo from "../zenroom.png";
 
+import { showToast } from "../utils/toast";
+
 export default function Login() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -18,9 +20,12 @@ export default function Login() {
     e.preventDefault();
     try {
       await dispatch(loginThunk({ phoneNumber, password })).unwrap();
+      showToast("success", "Đăng nhập thành công!");
       const next = location.state?.from || "/";
       navigate(next, { replace: true });
-    } catch {}
+    } catch {
+      showToast("error", error || "Đăng nhập thất bại, vui lòng thử lại!");
+    }
   };
 
   return (
