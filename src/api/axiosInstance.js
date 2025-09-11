@@ -1,4 +1,5 @@
 import axios from "axios";
+import { showToast } from "../utils/toast";
 
 const BASE_URL = process.env.REACT_APP_API_URL;
 export const axiosInstance = axios.create({
@@ -26,7 +27,9 @@ axiosInstance.interceptors.response.use(
 
 
     if ((status === 401 || status === 403) && !isLoginCall) {
+      showToast("info", "Phiên đã hết hạn, vui lòng đăng nhập lại.");
       localStorage.removeItem("accessToken");
+      localStorage.removeItem("expiresAt");
       window.location.href = "/login";
       return Promise.reject(error);
     }

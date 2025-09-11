@@ -6,10 +6,15 @@ import store from "./redux/store";
 import App from "./App";
 import "./index.css";
 
+import { setupAutoLogout } from "./redux/slices/authSlice";
+
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
+const expiresAt = localStorage.getItem("expiresAt");
+if (expiresAt) setupAutoLogout(store.dispatch, Number(expiresAt));
+
 root.render(
   <React.StrictMode>
     <Provider store={store}>
