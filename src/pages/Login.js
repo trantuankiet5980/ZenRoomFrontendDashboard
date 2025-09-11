@@ -5,6 +5,7 @@ import { useState } from "react";
 import logo from "../zenroom.png";
 
 import { showToast } from "../utils/toast";
+import { setupAutoLogout } from "../redux/slices/authSlice";
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -19,10 +20,17 @@ export default function Login() {
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
-      await dispatch(loginThunk({ phoneNumber, password })).unwrap();
-      showToast("success", "Đăng nhập thành công!");
-      const next = location.state?.from || "/";
-      navigate(next, { replace: true });
+      const res = await dispatch(loginThunk({ phoneNumber, password })).unwrap();
+      if( res.role === "admin"){
+        // Lên lịch auto-logout theo expiresAt trả về
+        setupAutoLogout(dispatch, res?.expiresAt);
+        showToast("success", "Đăng nhập thành công!");
+        const next = location.state?.from || "/";
+        navigate(next, { replace: true });
+      } else{
+        showToast("error", "Bạn không có quyền truy cập trang quản trị.");
+      }
+      
     } catch {
       showToast("error", error || "Đăng nhập thất bại, vui lòng thử lại!");
     }
@@ -42,7 +50,7 @@ export default function Login() {
             className="mx-auto h-24 w-24 object-contain"
           />
           <h1 className="mt-1 text-2xl font-bold text-slate-800">
-            Admin Dashboard
+            ZenRoom Admin
           </h1>
           <p className="text-slate-500 text-sm">Đăng nhập để tiếp tục</p>
         </div>
