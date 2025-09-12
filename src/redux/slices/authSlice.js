@@ -2,6 +2,8 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { axiosInstance } from "../../api/axiosInstance";
 import { showToast } from "../../utils/toast";
 
+const saved = JSON.parse(localStorage.getItem("auth") || "null");
+
 export const loginThunk = createAsyncThunk(
   "auth/login",
   async ({ phoneNumber, password }, { rejectWithValue }) => {
@@ -12,6 +14,19 @@ export const loginThunk = createAsyncThunk(
       return data;
     } catch (err) {
       return rejectWithValue({ message: err?.response?.data?.message || "Login failed" });
+    }
+  }
+);
+
+// Profile me
+export const fetchProfile = createAsyncThunk(
+  "auth/me",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get("/v1/auth/me");
+      return data; // { fullName, role, userId, ... }
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Load profile failed" });
     }
   }
 );
@@ -58,10 +73,10 @@ export const resetPassword = createAsyncThunk(
 
 const initialState = {
   accessToken: localStorage.getItem("accessToken") || null,
-  role: null, 
-  userId: null, 
-  fullName: null,
-  expiresAt: localStorage.getItem("expiresAt") || null,
+  role: saved?.role || null, 
+  userId: saved?.userId || null, 
+  fullName: saved?.fullName || null,
+  expiresAt: saved?.expiresAt || null, // timestamp ms
   isLoading: false, 
   error: null,
 
@@ -80,7 +95,7 @@ const initialState = {
 };
 
 let logoutTimerId = null;
-// 👉 util nội bộ: lên lịch auto-logout theo expiresAt (ms)
+//  util nội bộ: lên lịch auto-logout theo expiresAt (ms)
 export function setupAutoLogout(dispatch, expiresAt) {
   if (logoutTimerId) clearTimeout(logoutTimerId);
   if (!expiresAt) return;
@@ -101,6 +116,7 @@ const slice = createSlice({
       state.userId = null;
       state.fullName = null;
       state.expiresAt = null;
+      localStorage.removeItem("auth");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("expiresAt");
       // không navigate ở reducer; ProtectedRoute sẽ tự đẩy về /login
@@ -126,12 +142,46 @@ const slice = createSlice({
       s.fullName = payload.fullName;
       s.expiresAt = payload.expiresAt;
 
+      // persist cả khối
+      const auth = {
+        token: payload.token,
+        role: payload.role,
+        userId: payload.userId,
+        fullName: payload.fullName,
+        expiresAt: payload.expiresAt,
+      };
+      localStorage.setItem("auth", JSON.stringify(auth));
       localStorage.setItem("accessToken", payload.token);
       if (payload.expiresAt) localStorage.setItem("expiresAt", String(payload.expiresAt));
     });
     b.addCase(loginThunk.rejected, (s, { payload }) => {
       s.isLoading = false;
       s.error = payload?.message || "Login failed";
+    });
+    b.addCase(fetchProfile.fulfilled, (s, { payload }) => {
+      s.userId = payload.userId ?? s.userId;
+      s.fullName = payload.fullName ?? s.fullName;
+      s.avatarUrl = payload.avatarUrl ?? s.avatarUrl;
+      // nếu backend trả role ở /me, có thể cập nhật:
+      // s.role = payload.role ?? s.role;
+
+      const cur = JSON.parse(localStorage.getItem("auth") || "{}");
+      localStorage.setItem(
+        "auth",
+        JSON.stringify({
+          ...cur,
+          token: s.accessToken,
+          userId: s.userId,
+          fullName: s.fullName,
+          avatarUrl: s.avatarUrl,
+          role: s.role,
+          expiresAt: s.expiresAt,
+        })
+      );
+    });
+    b.addCase(fetchProfile.rejected, (s, { payload }) => {
+      // nếu token hết hạn, axios interceptor của bạn đã lo logout/redirect rồi.
+      s.error = payload?.message || null;
     });
     /* ---- forgot: send otp ---- */
     b.addCase(sendOtp.pending, (s) => {

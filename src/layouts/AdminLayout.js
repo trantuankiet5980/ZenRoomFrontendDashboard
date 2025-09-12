@@ -1,127 +1,196 @@
-import { useState } from "react";
-import { Outlet, NavLink, Link } from "react-router-dom";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { Outlet, Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../redux/slices/authSlice";
+import { logout, fetchProfile } from "../redux/slices/authSlice";
 import logo from "../zenroom.png";
+import NavContent from "../components/sidebar/NavContent";
 
 export default function AdminLayout() {
   const dispatch = useDispatch();
-  const { fullName } = useSelector(s => s.auth);
-  const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
+  const { fullName, avatarUrl, accessToken } = useSelector((s) => s.auth);
+
+  useEffect(() => {
+    if (accessToken) dispatch(fetchProfile());
+  }, [accessToken, dispatch]);
+
+  // Thu gọn toàn sidebar (desktop)
+  const [collapsed, setCollapsed] = useState(false);
+  // Drawer mobile
+  const [mobileOpen, setMobileOpen] = useState(false);
+  // Accordion từng section
+  const [openSec, setOpenSec] = useState({
+    overview: true,
+    users: true,
+    properties: true,
+    bookings: true,
+    content: true,
+  });
+  const toggleSec = (key) => setOpenSec((s) => ({ ...s, [key]: !s[key] }));
+
+  // Dropdown user menu
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  useEffect(() => {
+    const onDocClick = (e) => {
+      if (!userMenuRef.current) return;
+      if (!userMenuRef.current.contains(e.target)) setUserMenuOpen(false);
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, []);
+
+  const sidebarWidth = useMemo(() => (collapsed ? "w-16" : "w-64"), [collapsed]);
+  const mainMarginLeftMd = useMemo(() => (collapsed ? "md:ml-16" : "md:ml-64"), [collapsed]);
 
   return (
     <div className="min-h-screen w-full bg-brandBg/50">
       {/* Topbar */}
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-slate-100">
-        <div className="mx-auto max-w-screen-2xl px-4 h-14 flex items-center justify-between">
+        <div className="h-14 px-4 mx-auto max-w-screen-2xl flex items-center justify-between">
           <div className="flex items-center gap-2">
+            {/* mobile open */}
             <button
-              onClick={() => setOpen(o => !o)}
+              onClick={() => setMobileOpen(true)}
               className="md:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg border bg-white hover:bg-slate-50"
-              aria-label="Toggle menu"
+              aria-label="Open menu"
             >
-              {/* icon hamburger */}
-              <svg viewBox="0 0 24 24" className="h-5 w-5"><path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16"/></svg>
+              <svg viewBox="0 0 24 24" className="h-5 w-5">
+                <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16"/>
+              </svg>
             </button>
+
             <Link to="/" className="flex items-center gap-2">
               <img src={logo} alt="ZenRoom" className="h-8 w-8 object-contain" />
               <span className="font-semibold text-slate-800">ZenRoom Admin</span>
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="hidden sm:block text-sm text-slate-600">
-              {fullName || "Admin"}
-            </span>
+          {/* User menu */}
+          <div className="flex items-center gap-2">
+            {/* collapse desktop */}
             <button
-              onClick={() => dispatch(logout())}
-              className="rounded-lg px-3 py-1.5 bg-brandBtn text-slate-900 font-medium hover:brightness-95 active:translate-y-px"
+              onClick={() => setCollapsed((v) => !v)}
+              className="hidden md:inline-flex items-center justify-center h-9 px-3 rounded-lg border bg-white hover:bg-slate-50"
+              aria-label="Collapse sidebar"
+              title={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
             >
-              Đăng xuất
+              {collapsed ? (
+                <svg viewBox="0 0 24 24" className="h-5 w-5">
+                  <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M9 5l7 7-7 7"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-5 w-5">
+                  <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M15 5l-7 7 7 7"/>
+                </svg>
+              )}
             </button>
+
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => setUserMenuOpen((v) => !v)}
+                className="flex items-center gap-2 rounded-lg border bg-white px-2 py-1.5 hover:bg-slate-50"
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="avatar" className="h-8 w-8 rounded-full object-cover border" />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-amber-200 grid place-items-center text-xs font-semibold text-amber-900">
+                    {(fullName || "A").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="hidden sm:inline text-sm text-slate-700">{fullName || "Admin"}</span>
+                <svg viewBox="0 0 24 24" className={`h-4 w-4 text-slate-600 transition-transform ${userMenuOpen ? "rotate-180" : ""}`}>
+                  <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+
+              {/* Dropdown panel */}
+              {userMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden z-40"
+                >
+                  <div className="px-3 py-3 border-b bg-slate-50">
+                    <div className="text-sm font-medium text-slate-800">{fullName || "Admin"}</div>
+                    <div className="text-xs text-slate-500">Quản trị viên ZenRoom</div>
+                  </div>
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                    onClick={() => { setUserMenuOpen(false); navigate("/profile"); }}
+                    role="menuitem"
+                  >
+                    Thông tin cá nhân
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                    onClick={() => { setUserMenuOpen(false); dispatch(logout()); }}
+                    role="menuitem"
+                  >
+                    Đăng xuất
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Shell */}
-      <div className="mx-auto max-w-screen-2xl px-4 py-4 grid grid-cols-12 gap-4">
-        {/* Sidebar */}
-        <aside className={`${open ? "block" : "hidden"} md:block col-span-12 md:col-span-3 lg:col-span-2`}>
-          <nav className="rounded-2xl border border-amber-100 bg-[#FFE3B8]/40 p-2">
-            <Section title="Tổng quan">
-              <Item to="/" label="Dashboard" />
-            </Section>
+      {/* Sidebar — desktop fixed */}
+      <aside
+        className={`hidden md:block fixed left-0 top-14 bottom-0 ${sidebarWidth} z-20
+        border-r border-amber-100 bg-[#FFE3B8]/40`}
+      >
+        <div className="h-full overflow-y-auto p-2">
+          <NavContent
+            collapsed={collapsed}
+            openSec={openSec}
+            onToggle={(k) => setOpenSec((s) => ({ ...s, [k]: !s[k] }))}
+          />
+        </div>
+      </aside>
 
-            <Section title="Quản lý người dùng">
-              <Item to="/users" label="Users" />
-              <Item to="/roles" label="Roles" disabled />
-              <Item to="/user-logs" label="Logs" disabled />
-            </Section>
+      {/* Sidebar — mobile drawer */}
+      <aside
+        className={`md:hidden fixed inset-y-0 left-0 z-30 w-64 transform transition-transform duration-200
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        border-r border-amber-100 bg-[#FFE3B8]/90 backdrop-blur`}
+      >
+        <div className="h-14 flex items-center justify-between px-3 border-b border-amber-100 bg-[#FFE3B8]">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="ZenRoom" className="h-8 w-8 object-contain" />
+            <span className="font-semibold text-slate-800">Menu</span>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="inline-flex items-center justify-center h-9 w-9 rounded-lg border bg-white hover:bg-slate-50"
+            aria-label="Close menu"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5">
+              <path stroke="currentColor" strokeWidth="2" strokeLinecap="round" d="M6 6l12 12M6 18L18 6"/>
+            </svg>
+          </button>
+        </div>
+        <div className="h-[calc(100%-56px)] overflow-y-auto p-2">
+          <NavContent
+            collapsed={false}
+            openSec={openSec}
+            onToggle={(k) => setOpenSec((s) => ({ ...s, [k]: !s[k] }))}
+            onNavigate={() => setMobileOpen(false)}
+          />
+        </div>
+      </aside>
 
-            <Section title="Bài đăng">
-              <Item to="/properties" label="Properties" />
-              <Item to="/moderations" label="Moderations" />
-            </Section>
+      {/* overlay mobile */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/30 z-20" onClick={() => setMobileOpen(false)} />
+      )}
 
-            <Section title="Đặt chỗ & Thu chi">
-              <Item to="/bookings" label="Bookings" />
-              <Item to="/contracts" label="Contracts" />
-              <Item to="/invoices" label="Invoices" />
-              <Item to="/payments" label="Payments" />
-            </Section>
-
-            <Section title="Tương tác & Nội dung">
-              <Item to="/discount-codes" label="Discount Codes" />
-              <Item to="/reviews" label="Reviews" />
-              <Item to="/reports" label="Reports" />
-            </Section>
-          </nav>
-        </aside>
-
-        {/* Main content */}
-        <main className="col-span-12 md:col-span-9 lg:col-span-10">
-          <Outlet />
-        </main>
-      </div>
+      {/* Main content — chừa lề trái theo sidebar desktop */}
+      <main className={`px-4 py-4 mx-auto max-w-screen-2xl ${mainMarginLeftMd}`}>
+        <Outlet />
+      </main>
     </div>
-  );
-}
-
-/* ===== Helpers ===== */
-function Section({ title, children }) {
-  return (
-    <div className="mb-2">
-      <div className="px-2 py-2 text-[11px] font-semibold uppercase tracking-wide text-amber-900/80">
-        {title}
-      </div>
-      <div className="space-y-1">{children}</div>
-    </div>
-  );
-}
-
-function Item({ to, label, disabled = false }) {
-  if (disabled) {
-    return (
-      <div className="mx-1 px-3 py-2 text-sm rounded-xl text-slate-400 cursor-not-allowed border border-transparent">
-        {label}
-      </div>
-    );
-  }
-
-  return (
-    <NavLink
-      to={to}
-      end={to === "/"}
-      className={({ isActive }) =>
-        `mx-1 flex items-center gap-2 px-3 py-2 text-sm rounded-xl border
-         ${isActive
-           ? "bg-white border-amber-200 text-slate-900 shadow-sm"
-           : "bg-transparent border-transparent text-slate-700 hover:bg-white/70 hover:border-amber-200"}`
-      }
-    >
-      {/* dot icon */}
-      <span className="inline-block h-2 w-2 rounded-full bg-amber-400" />
-      <span>{label}</span>
-    </NavLink>
   );
 }
