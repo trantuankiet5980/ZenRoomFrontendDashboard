@@ -9,10 +9,29 @@ export default function AdminLayout() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { fullName, avatarUrl, accessToken } = useSelector((s) => s.auth);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const notifRef = useRef(null);
 
   useEffect(() => {
     if (accessToken) dispatch(fetchProfile());
   }, [accessToken, dispatch]);
+
+  // đóng khi click ngoài
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+    // data giả lập thông báo
+  const notifications = [
+    { id: 1, title: "Đặt phòng mới", message: "Tenant2 đã đặt phòng", isRead: false },
+    { id: 2, title: "Phê duyệt phòng", message: "Bài đăng Phòng 35m² đã được duyệt", isRead: true },
+  ];
 
   // Thu gọn toàn sidebar (desktop)
   const [collapsed, setCollapsed] = useState(false);
@@ -64,14 +83,10 @@ export default function AdminLayout() {
               <img src={logo} alt="ZenRoom" className="h-8 w-8 object-contain" />
               <span className="font-semibold text-slate-800">ZenRoom Admin</span>
             </Link>
-          </div>
-
-          {/* User menu */}
-          <div className="flex items-center gap-2">
             {/* collapse desktop */}
             <button
               onClick={() => setCollapsed((v) => !v)}
-              className="hidden md:inline-flex items-center justify-center h-9 px-3 rounded-lg border bg-white hover:bg-slate-50"
+              className="hidden md:inline-flex items-center justify-center h-9 px-3 rounded-lg border bg-brandBg hover:bg-slate-50"
               aria-label="Collapse sidebar"
               title={collapsed ? "Mở rộng menu" : "Thu gọn menu"}
             >
@@ -85,11 +100,46 @@ export default function AdminLayout() {
                 </svg>
               )}
             </button>
+            
+          </div>
 
+          {/* User menu */}
+          <div className="flex items-center gap-2" ref={notifRef}>
+            {/* Notification */}
+            <button
+               onClick={() => setNotifOpen((v) => !v)}
+              className="relative rounded-full p-2 hover:bg-brandBg"
+              aria-label="Thông báo"
+            >
+              <svg className="h-6 w-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M15 17h5l-1.405-1.405C18.21 15.21 18 14.702 18 14.17V11
+                    a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165
+                    6 8.388 6 11v3.17c0 .532-.21 1.04-.595 1.425L4 17h5m6 0v1
+                    a3 3 0 11-6 0v-1m6 0H9"/>
+              </svg>
+              {/* Badge */}
+              {notifications.some(n => !n.isRead) && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500"></span>
+              )}
+            </button>
+            {notifOpen && (
+              <div className="absolute right-20 top-12 w-80 bg-white border rounded-xl shadow-lg p-2 z-40">
+                <h3 className="px-3 py-2 font-semibold text-slate-700">Thông báo</h3>
+                <div className="max-h-64 overflow-y-auto divide-y">
+                  {notifications.map(n => (
+                    <div key={n.id} className={`px-3 py-2 text-sm ${n.isRead ? "text-slate-500" : "text-slate-800 font-medium"}`}>
+                      <div>{n.title}</div>
+                      <div className="text-xs">{n.message}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="relative" ref={userMenuRef}>
               <button
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-lg border bg-white px-2 py-1.5 hover:bg-slate-50"
+                className="flex items-center gap-2 rounded-lg border bg-brandBg px-2 py-1.5 hover:bg-slate-50"
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
