@@ -1,0 +1,174 @@
+import { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchProfile, updateProfile } from "../redux/slices/authSlice";
+
+export default function Profile() {
+  const dispatch = useDispatch();
+  const {
+    fullName, gender, dateOfBirth, email, phoneNumber, avatarUrl,
+    profileLoading, isLoading
+  } = useSelector(s => s.auth);
+
+  // ❶ Gọi fetch khi vào trang (nếu cần)
+  useEffect(() => { dispatch(fetchProfile()); }, [dispatch]);
+
+  // ❷ Form state; ĐỒNG BỘ lại mỗi khi Redux thay đổi
+  const [form, setForm] = useState({
+    fullName: "", gender: "", dateOfBirth: "", avatarUrl: "", email: "", phoneNumber: "",
+  });
+
+  useEffect(() => {
+    setForm({
+      fullName: fullName || "",
+      gender: gender || "",
+      dateOfBirth: dateOfBirth ? dateOfBirth.slice(0, 10) : "", // 'YYYY-MM-DD'
+      avatarUrl: avatarUrl || "",
+      email: email || "",
+      phoneNumber: phoneNumber || "",
+    });
+  }, [fullName, gender, dateOfBirth, avatarUrl, email, phoneNumber]);
+
+  const onChange = (e) => {
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: value }));
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    const body = {
+      fullName: form.fullName?.trim(),
+      gender: form.gender || null,
+      dateOfBirth: form.dateOfBirth ? `${form.dateOfBirth}T00:00:00` : null,
+      avatarUrl: form.avatarUrl?.trim() || null,
+      email: form.email?.trim() || null,
+      phoneNumber: form.phoneNumber?.trim() || null,
+    };
+    await dispatch(updateProfile(body));
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-slate-800">Hồ sơ cá nhân</h1>
+        <p className="text-slate-500">Cập nhật thông tin quản trị viên</p>
+      </div>
+
+      {/* Optional: skeleton khi đang tải hồ sơ lần đầu */}
+      {profileLoading ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          Đang tải hồ sơ…
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Avatar */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <div className="flex flex-col items-center text-center">
+              {form.avatarUrl ? (
+                <img src={form.avatarUrl} alt="avatar" className="h-24 w-24 rounded-full object-cover border" />
+              ) : (
+                <div className="h-24 w-24 rounded-full bg-amber-200 grid place-items-center text-3xl font-semibold text-amber-900">
+                  {(form.fullName || "A").charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="mt-3">
+                <div className="text-lg font-semibold text-slate-800">{form.fullName || "Admin"}</div>
+                <div className="text-sm text-slate-500">{form.email || "—"}</div>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-slate-700">Ảnh đại diện (URL)</label>
+              <input
+                name="avatarUrl"
+                value={form.avatarUrl}
+                onChange={onChange}
+                placeholder="https://cdn.example.com/ava.jpg"
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[15px] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/50"
+              />
+            </div>
+          </div>
+
+          {/* Form info */}
+          <div className="lg:col-span-2 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+            <form onSubmit={onSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700">Họ và tên</label>
+                <input
+                  name="fullName"
+                  value={form.fullName}
+                  onChange={onChange}
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[15px] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/50"
+                  placeholder="Nguyen Van A"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Giới tính</label>
+                  <select
+                    name="gender"
+                    value={form.gender}
+                    onChange={onChange}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[15px] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/50"
+                  >
+                    <option value="">—</option>
+                    <option value="MALE">Nam</option>
+                    <option value="FEMALE">Nữ</option>
+                    <option value="OTHER">Khác</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Ngày sinh</label>
+                  <input
+                    type="date"
+                    name="dateOfBirth"
+                    value={form.dateOfBirth}
+                    onChange={onChange}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[15px] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/50"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Email</label>
+                  <input
+                    name="email"
+                    type="email"
+                    value={form.email}
+                    onChange={onChange}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[15px] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/50"
+                    placeholder="a@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700">Số điện thoại</label>
+                  <input
+                    name="phoneNumber"
+                    inputMode="tel"
+                    value={form.phoneNumber}
+                    onChange={onChange}
+                    className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-[15px] outline-none focus:border-amber-400 focus:ring-4 focus:ring-amber-200/50"
+                    placeholder="0901234567"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="rounded-xl bg-brandBtn text-slate-900 font-semibold px-4 py-2.5 shadow-brand disabled:opacity-70"
+                >
+                  {isLoading ? "Đang lưu..." : "Lưu thay đổi"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
