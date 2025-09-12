@@ -31,6 +31,18 @@ export const fetchProfile = createAsyncThunk(
   }
 );
 
+export const updateProfile = createAsyncThunk(
+  "auth/updateProfile",
+  async (body, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.put("/v1/users/profile", body);
+      return data; // nên trả lại { userId, fullName, phoneNumber, email, avatarUrl, ... }
+    } catch (e) {
+      return rejectWithValue(e?.response?.data || { message: "Cập nhật hồ sơ thất bại" });
+    }
+  }
+);
+
 /* ========= Forgot password thunks ========= */
 export const sendOtp = createAsyncThunk(
   "auth/forgot/sendOtp",
@@ -76,8 +88,15 @@ const initialState = {
   role: saved?.role || null, 
   userId: saved?.userId || null, 
   fullName: saved?.fullName || null,
-  expiresAt: saved?.expiresAt || null, // timestamp ms
-  isLoading: false, 
+  gender: saved?.gender || null,
+  dateOfBirth: saved?.dateOfBirth || null, // ISO
+  avatarUrl: saved?.avatarUrl || null,
+  email: saved?.email || null,
+  phoneNumber: saved?.phoneNumber || null,
+
+  // cờ trạng thái
+  profileLoading: false,
+  isLoading: false, // cho updateProfile
   error: null,
 
     // forgot password flow
@@ -115,7 +134,11 @@ const slice = createSlice({
       state.role = null;
       state.userId = null;
       state.fullName = null;
-      state.expiresAt = null;
+      state.gender = null;
+      state.dateOfBirth = null;
+      state.avatarUrl = null;
+      state.email = null;
+      state.phoneNumber = null;
       localStorage.removeItem("auth");
       localStorage.removeItem("accessToken");
       localStorage.removeItem("expiresAt");
@@ -158,30 +181,71 @@ const slice = createSlice({
       s.isLoading = false;
       s.error = payload?.message || "Login failed";
     });
+    b.addCase(fetchProfile.pending, (s) => { s.profileLoading = true; s.error = null; });
     b.addCase(fetchProfile.fulfilled, (s, { payload }) => {
+      s.profileLoading = false;
+      // GÁN ĐỦ FIELD
       s.userId = payload.userId ?? s.userId;
       s.fullName = payload.fullName ?? s.fullName;
+      s.gender = payload.gender ?? s.gender;
+      s.dateOfBirth = payload.dateOfBirth ?? s.dateOfBirth;
       s.avatarUrl = payload.avatarUrl ?? s.avatarUrl;
-      // nếu backend trả role ở /me, có thể cập nhật:
-      // s.role = payload.role ?? s.role;
+      s.email = payload.email ?? s.email;
+      s.phoneNumber = payload.phoneNumber ?? s.phoneNumber;
 
+      // lưu lại localStorage để F5 vẫn thấy
       const cur = JSON.parse(localStorage.getItem("auth") || "{}");
-      localStorage.setItem(
-        "auth",
-        JSON.stringify({
-          ...cur,
-          token: s.accessToken,
-          userId: s.userId,
-          fullName: s.fullName,
-          avatarUrl: s.avatarUrl,
-          role: s.role,
-          expiresAt: s.expiresAt,
-        })
-      );
+      localStorage.setItem("auth", JSON.stringify({
+        ...cur,
+        token: s.accessToken,
+        role: s.role,
+        userId: s.userId,
+        fullName: s.fullName,
+        gender: s.gender,
+        dateOfBirth: s.dateOfBirth,
+        avatarUrl: s.avatarUrl,
+        email: s.email,
+        phoneNumber: s.phoneNumber,
+      }));
     });
     b.addCase(fetchProfile.rejected, (s, { payload }) => {
-      // nếu token hết hạn, axios interceptor của bạn đã lo logout/redirect rồi.
+      s.profileLoading = false;
       s.error = payload?.message || null;
+    });
+    // updateProfile
+    b.addCase(updateProfile.pending, (s) => { s.isLoading = true; s.error = null; });
+    b.addCase(updateProfile.fulfilled, (s, { payload }) => {
+      s.isLoading = false;
+
+      // gán về state với các field yêu cầu
+      s.fullName = payload.fullName ?? s.fullName;
+      s.gender = payload.gender ?? s.gender;
+      s.dateOfBirth = payload.dateOfBirth ?? s.dateOfBirth;
+      s.avatarUrl = payload.avatarUrl ?? s.avatarUrl;
+      s.email = payload.email ?? s.email;
+      s.phoneNumber = payload.phoneNumber ?? s.phoneNumber;
+
+      const cur = JSON.parse(localStorage.getItem("auth") || "{}");
+      localStorage.setItem("auth", JSON.stringify({
+        ...cur,
+        token: s.accessToken,
+        role: s.role,
+        userId: s.userId,
+        fullName: s.fullName,
+        gender: s.gender,
+        dateOfBirth: s.dateOfBirth,
+        avatarUrl: s.avatarUrl,
+        email: s.email,
+        phoneNumber: s.phoneNumber,
+        expiresAt: s.expiresAt,
+      }));
+
+      showToast("success", "Đã cập nhật hồ sơ thành công.");
+    });
+    b.addCase(updateProfile.rejected, (s, { payload }) => {
+      s.isLoading = false;
+      s.error = payload?.message || "Cập nhật hồ sơ thất bại";
+      showToast("error", "Lỗi " + s.error);
     });
     /* ---- forgot: send otp ---- */
     b.addCase(sendOtp.pending, (s) => {

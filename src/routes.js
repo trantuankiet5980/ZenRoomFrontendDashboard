@@ -17,6 +17,8 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 
+import Profile from "./pages/Profile";
+
 const routes = [
   { path: "/login", element: <Login /> },
   { path: "/forgot-password", element: <ForgotPassword /> },
@@ -39,6 +41,7 @@ const routes = [
           { path: "reviews", element: <Reviews /> },
           { path: "reports", element: <Reports /> },
           { path: "moderations", element: <Moderations /> },
+          { path: "profile", element: <Profile />}
         ],
       },
     ],
