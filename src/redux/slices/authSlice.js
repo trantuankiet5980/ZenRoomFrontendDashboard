@@ -43,6 +43,28 @@ export const updateProfile = createAsyncThunk(
   }
 );
 
+// Upload avatar file -> BE -> S3, nhận lại { avatarUrl }
+export const updateAvatar = createAsyncThunk(
+  "auth/updateAvatar",
+  async (file, { rejectWithValue }) => {
+    try {
+      const fd = new FormData();
+      fd.append("file", file);           // tên field 'file' phía backend cần nhận
+      // nếu backend yêu cầu field khác (e.g. 'avatar'), đổi lại cho khớp
+
+      const { data } = await axiosInstance.post(
+        "/v1/users/me/avatar",
+        fd,
+        { headers: { "Content-Type": "multipart/form-data" } }
+      );
+      // Kỳ vọng response: { avatarUrl: "https://s3..." }
+      return data;
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Upload avatar thất bại" });
+    }
+  }
+);
+
 /* ========= Forgot password thunks ========= */
 export const sendOtp = createAsyncThunk(
   "auth/forgot/sendOtp",
@@ -246,6 +268,36 @@ const slice = createSlice({
       s.isLoading = false;
       s.error = payload?.message || "Cập nhật hồ sơ thất bại";
       showToast("error", "Lỗi " + s.error);
+    });
+    // ✅ handle upload avatar done
+    b.addCase(updateAvatar.pending, (s) => { s.isLoading = true; s.error = null; });
+    b.addCase(updateAvatar.fulfilled, (s, { payload }) => {
+      s.isLoading = false;
+      if (payload?.avatarUrl) {
+        s.avatarUrl = payload.avatarUrl;
+
+        // update localStorage
+        const cur = JSON.parse(localStorage.getItem("auth") || "{}");
+        localStorage.setItem("auth", JSON.stringify({
+          ...cur,
+          token: s.accessToken,
+          role: s.role,
+          userId: s.userId,
+          fullName: s.fullName,
+          gender: s.gender,
+          dateOfBirth: s.dateOfBirth,
+          avatarUrl: s.avatarUrl,
+          email: s.email,
+          phoneNumber: s.phoneNumber,
+          expiresAt: s.expiresAt,
+        }));
+      }
+      showToast("success", "Đã cập nhật ảnh đại diện thành công");
+    });
+    b.addCase(updateAvatar.rejected, (s, { payload }) => {
+      s.isLoading = false;
+      s.error = payload?.message || "Upload avatar thất bại";
+      showToast("error", "Lỗi " +s.error);
     });
     /* ---- forgot: send otp ---- */
     b.addCase(sendOtp.pending, (s) => {
