@@ -3,7 +3,7 @@ import AdminLayout from "./layouts/AdminLayout";
 
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
-import Properties from "./pages/Properties";
+import Properties from "./pages/properties/Properties";
 import Bookings from "./pages/Bookings";
 import Contracts from "./pages/Contracts";
 import Payments from "./pages/Payments";
