@@ -35,7 +35,6 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         onToggle={() => onToggle("properties")}
       >
         <Item to="/properties" label="Properties" labelCls={labelCls} onNavigate={onNavigate} />
-        <Item to="/moderations" label="Moderations" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
 
       {/* Đặt chỗ & Thu chi */}
