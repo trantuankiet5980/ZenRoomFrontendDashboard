@@ -5,12 +5,18 @@ import { logout, fetchProfile } from "../redux/slices/authSlice";
 import logo from "../zenroom.png";
 import NavContent from "../components/sidebar/NavContent";
 
+import { resolveAvatarUrl } from "../utils/cdn";
+
 export default function AdminLayout() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { fullName, avatarUrl, accessToken } = useSelector((s) => s.auth);
+  const { fullName, accessToken } = useSelector((s) => s.auth);
   const [notifOpen, setNotifOpen] = useState(false);
   const notifRef = useRef(null);
+
+  const { avatarUrl, avatarVersion } = useSelector(s => s.auth);
+  const base = resolveAvatarUrl(avatarUrl);           // "https://.../avatars/....png"
+  const src  = avatarVersion ? `${base}?v=${avatarVersion}` : base;
 
   useEffect(() => {
     if (accessToken) dispatch(fetchProfile());
@@ -144,7 +150,12 @@ export default function AdminLayout() {
                 aria-expanded={userMenuOpen}
               >
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="avatar" className="h-8 w-8 rounded-full object-cover border" />
+                  <img
+                    key={`${avatarUrl || "no"}-${avatarVersion || 0}`}
+                    src={src}
+                    alt="avatar"
+                    className="h-8 w-8 rounded-full object-cover border"
+                  />
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-amber-200 grid place-items-center text-xs font-semibold text-amber-900">
                     {(fullName || "A").charAt(0).toUpperCase()}
