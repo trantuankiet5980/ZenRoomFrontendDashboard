@@ -18,8 +18,8 @@ export default function DetailDrawer({ open, onClose, loading, data }) {
           {!loading && data && (
             <div className="space-y-4">
               <div>
-                <div className="text-xl font-bold text-slate-800">{data.title}</div>
-                <div className="text-slate-600">{data.description}</div>
+                <div className="text-xl font-bold text-slate-800">Tiêu đề: {data.title}</div>
+                <div className="text-slate-600">Mô tả: {data.description}</div>
                 <div className="mt-1 text-sm text-slate-500">
                   Loại: <b>{data.propertyType}</b> · Diện tích: <b>{data.area ?? "—"} m²</b> · Tầng: <b>{data.floorNo ?? "—"}</b>
                 </div>
@@ -64,7 +64,7 @@ export default function DetailDrawer({ open, onClose, loading, data }) {
                   <ul className="list-disc pl-5 text-sm text-slate-700">
                     {data.furnishings.map(f => (
                       <li key={f.id || f.furnishingId}>
-                        {f.furnishingName} {f.quantity ? `x${f.quantity}` : ""}
+                        {f.furnishingName} {f.quantity ? `- Số lượng: ${f.quantity}` : ""}
                       </li>
                     ))}
                   </ul>

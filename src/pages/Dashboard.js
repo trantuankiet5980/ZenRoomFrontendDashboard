@@ -16,7 +16,7 @@ function StatCard({ title, value, hint }) {
 function RecentBookings({ rows }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white overflow-hidden shadow-sm">
-      <div className="px-4 py-3 border-b bg-slate-50 text-sm font-medium text-slate-700">Đặt chỗ gần đây</div>
+      <div className="px-4 py-3 border-b bg-slate-50 text-sm font-medium text-slate-700">Đặt phòng/Căn hộ gần đây</div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-slate-600">
@@ -99,7 +99,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Tổng đặt chỗ" value={overview.totalBookings} />
+        <StatCard title="Tổng đặt phòng/căn hộ" value={overview.totalBookings} />
         <StatCard title="Chờ duyệt" value={overview.pendingBookings} />
         <StatCard title="Đã duyệt" value={overview.approvedBookings} />
         <StatCard title="Hoàn tất / Hủy" value={`${overview.completedBookings} / ${overview.cancelledBookings}`} />
