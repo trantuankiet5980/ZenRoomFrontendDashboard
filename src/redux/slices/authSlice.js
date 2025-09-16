@@ -177,10 +177,12 @@ const slice = createSlice({
     b.addCase(loginThunk.pending, (s) => { s.isLoading = true; s.error = null; });
     b.addCase(loginThunk.fulfilled, (s, { payload }) => {
       s.isLoading = false;
-      if (payload.role !== "admin") {
+      const isAdmin = String(payload.role || "").toLowerCase() === "admin";
+      if (!isAdmin) {
           s.error = "Bạn không có quyền truy cập trang quản trị.";
           return;
         }
+      s.role = "admin";
       s.accessToken = payload.token;
       s.role = payload.role;
       s.userId = payload.userId;
