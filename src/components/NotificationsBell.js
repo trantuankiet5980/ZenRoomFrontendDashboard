@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchNotifications, markAllRead } from "../redux/slices/notificationsSlice";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function NotificationsBell() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const { items, unreadCount, loading } = useSelector(s => s.notifications);
   const { accessToken } = useSelector(s => s.auth);
 
@@ -38,6 +39,19 @@ export default function NotificationsBell() {
     // mở panel thì refresh 1 phát cho “cảm giác realtime”
     if (!open) dispatch(fetchNotifications());
     setOpen(o => !o);
+  };
+
+  const goToNotif = (n) => {
+    const url = n.redirectUrl || "/properties";
+    const m = url.match(/properties\/([0-9a-f-]+)/i);
+    const propertyId = m?.[1];
+
+    if (propertyId) {
+      navigate("/properties", { state: { highlightId: propertyId } });
+    } else {
+      navigate(url.startsWith("/") ? url : "/");
+    }
+    setOpen(false);
   };
 
   return (
@@ -108,12 +122,12 @@ export default function NotificationsBell() {
 
                     {n.redirectUrl && (
                       <div className="mt-1">
-                        <Link
-                          to={n.redirectUrl.startsWith("/") ? n.redirectUrl : "/"}
+                        <button
+                          onClick={() => goToNotif(n)}
                           className="text-xs text-amber-700 hover:underline"
                         >
                           Xem chi tiết
-                        </Link>
+                        </button>
                       </div>
                     )}
                   </div>

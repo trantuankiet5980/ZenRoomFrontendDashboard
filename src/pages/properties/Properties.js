@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   fetchProperties, setStatus, setQ, setPage, setSize,
   fetchPropertyById, clearDetail,
@@ -11,6 +12,8 @@ import DetailDrawer from "./DetailDrawer";
 import RejectModal from "./RejectModal";
 
 export default function Properties() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const {
     items, page, size, totalPages, totalElements,
@@ -29,6 +32,38 @@ export default function Properties() {
     const id = setTimeout(() => dispatch(setQ(kw.trim() || "")), 350);
     return () => clearTimeout(id);
   }, [kw, dispatch]);
+
+   // === Highlight flow ===
+  const incomingHL = location.state?.highlightId;
+  const [highlightId, setHighlightId] = useState(null);
+  // Nhận highlightId 1 lần rồi xóa state trên history
+  useEffect(() => {
+    if (!incomingHL) return;
+    setHighlightId(incomingHL);
+
+    // clear state để back/F5 không lặp lại
+    navigate(location.pathname, { replace: true });
+    // Bảo đảm tab và search không chặn item (tuỳ chọn):
+    // dispatch(setStatus("")); dispatch(setQ(""));
+  }, [incomingHL, navigate, location.pathname/*, dispatch*/]);
+
+  // Khi items thay đổi, thử scroll tới hàng cần highlight
+  useEffect(() => {
+    if (!highlightId) return;
+    const row = document.querySelector(`[data-rowid="${highlightId}"]`);
+    if (row) {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      // remove hiệu ứng sau 2.5s
+      const t = setTimeout(() => {
+        row.classList.remove("ring-2", "ring-amber-400", "animate-pulse");
+      }, 2500);
+      return () => clearTimeout(t);
+    } else if (!loading) {
+      // Không thấy trong trang hiện tại -> mở drawer chi tiết như fallback
+      dispatch(fetchPropertyById(highlightId));
+      setOpenDetail(true);
+    }
+  }, [items, highlightId, loading, dispatch]);
 
   const pageInfo = useMemo(() => {
     const from = totalElements === 0 ? 0 : page * size + 1;
@@ -101,6 +136,7 @@ export default function Properties() {
         onReject={onReject}
         onDelete={onDelete}
         actionLoadingId={actionLoadingId}
+        highlightId={highlightId}
       />
 
       {/* Drawer chi tiết */}
