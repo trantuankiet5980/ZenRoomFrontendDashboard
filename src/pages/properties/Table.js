@@ -6,7 +6,7 @@ export default function PropertiesTable({
   page, size, totalPages, totalElements, pageInfo,
   onPageFirst, onPagePrev, onPageNext, onPageLast,
   onView, onApprove, onReject, onDelete,
-  actionLoadingId
+  actionLoadingId, highlightId,
 }) {
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-2 shadow-sm">
@@ -29,8 +29,12 @@ export default function PropertiesTable({
 
             {items.map((p) => {
               const busy = actionLoadingId === p.propertyId;
+              const isHL = highlightId === p.propertyId;
               return (
-                <tr key={p.propertyId} className="hover:bg-amber-50/40">
+                <tr 
+                  key={p.propertyId} 
+                  data-rowid={p.propertyId}
+                  className={`hover:bg-amber-50/40 ${isHL ? "ring-2 ring-amber-400 animate-pulse" : ""}`}>
                   <td className="py-2 px-3">
                     <div className="font-medium text-slate-800">{p.title || "(Không tiêu đề)"}</div>
                     <div className="text-xs text-slate-500">
