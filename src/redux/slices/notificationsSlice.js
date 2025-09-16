@@ -13,6 +13,35 @@ export const fetchNotifications = createAsyncThunk(
   }
 );
 
+// Đánh dấu 1 thông báo đã đọc
+export const markOneRead = createAsyncThunk(
+  "notifications/markOneRead",
+  async (id, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.post(`/v1/notifications/${id}/read`);
+      // kỳ vọng { updated, unreadCount }
+      return { id, unreadCount: data?.unreadCount ?? undefined };
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Đánh dấu đã đọc thất bại" });
+    }
+  }
+);
+
+// Đánh dấu đã đọc tất cả
+export const markAllReadServer = createAsyncThunk(
+  "notifications/markAllReadServer",
+  async (_, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.post(`/v1/notifications/read-all`);
+      // kỳ vọng { updated, unreadCount: 0 }
+      return { unreadCount: data?.unreadCount ?? 0 };
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Đánh dấu tất cả thất bại" });
+    }
+  }
+);
+
+
 const slice = createSlice({
   name: "notifications",
   initialState: {
@@ -33,7 +62,12 @@ const slice = createSlice({
           state.items.unshift(n);
           if (!n.isRead) state.unreadCount += 1;
         } else {
+          const prevUnread = !state.items[i].isRead;
+          const nextUnread = !n.isRead;
           state.items[i] = { ...state.items[i], ...n };
+          // điều chỉnh lại unreadCount nếu trạng thái đọc thay đổi
+          if (prevUnread && !nextUnread) state.unreadCount = Math.max(0, state.unreadCount - 1);
+          if (!prevUnread && nextUnread) state.unreadCount += 1;
         }
       }
     },
@@ -52,6 +86,23 @@ const slice = createSlice({
     b.addCase(fetchNotifications.rejected, (s,{payload}) => {
       s.loading = false;
       s.error = payload?.message || "Load notifications failed";
+    });
+
+    // markOneRead
+    b.addCase(markOneRead.fulfilled, (s, { payload }) => {
+      const { id, unreadCount } = payload || {};
+      const i = s.items.findIndex(n => n.notificationId === id);
+      if (i !== -1) {
+        s.items[i] = { ...s.items[i], isRead: true };
+      }
+      if (typeof unreadCount === "number") s.unreadCount = unreadCount;
+      else s.unreadCount = s.items.filter(n => !n.isRead).length;
+    });
+
+    // markAllReadServer
+    b.addCase(markAllReadServer.fulfilled, (s, { payload }) => {
+      s.items = s.items.map(n => ({ ...n, isRead: true }));
+      s.unreadCount = typeof payload?.unreadCount === "number" ? payload.unreadCount : 0;
     });
   }
 });
