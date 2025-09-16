@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchNotifications, markAllRead } from "../redux/slices/notificationsSlice";
+import { fetchNotifications, markAllReadServer, markOneRead } from "../redux/slices/notificationsSlice";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 export default function NotificationsBell() {
@@ -83,7 +83,7 @@ export default function NotificationsBell() {
               {loading && <span className="text-xs text-slate-500">Đang tải…</span>}
               {unreadCount > 0 && (
                 <button
-                  onClick={() => dispatch(markAllRead())}
+                  onClick={() => dispatch(markAllReadServer())}
                   className="text-xs text-amber-700 hover:underline"
                 >
                   Đánh dấu đã đọc
@@ -123,7 +123,9 @@ export default function NotificationsBell() {
                     {n.redirectUrl && (
                       <div className="mt-1">
                         <button
-                          onClick={() => goToNotif(n)}
+                          onClick={() => {
+                            dispatch(markOneRead(n.notificationId));
+                            goToNotif(n)}}
                           className="text-xs text-amber-700 hover:underline"
                         >
                           Xem chi tiết
