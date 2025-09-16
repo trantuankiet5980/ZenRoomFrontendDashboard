@@ -8,8 +8,10 @@ import NavContent from "../components/sidebar/NavContent";
 import { resolveAvatarUrl } from "../utils/cdn";
 
 import NotificationsBell from "../components/NotificationsBell";
+import useNotificationsSocket from "../hooks/useNotificationsSocket";
 
 export default function AdminLayout() {
+  useNotificationsSocket();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { fullName, accessToken } = useSelector((s) => s.auth);
