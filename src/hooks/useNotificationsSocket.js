@@ -42,9 +42,26 @@ export default function useNotificationsSocket() {
             // body có thể là 1 object hoặc mảng; wsUpsert đã xử lý cả 2
             dispatch(wsUpsert(body));
 
-            // (tuỳ chọn) hiện toast gọn:
-            const title = Array.isArray(body) ? body[0]?.title : body?.title;
-            if (title) showToast("info", `🔔 Bài đăng ${body?.title } cần được duyệt`);
+            const item = Array.isArray(body) ? body[0] : body;
+            const type = item?.type;
+            const title = item?.title || "Bài đăng";
+
+            if (type === "PROPERTY_CREATED" || type === "PROPERTY_UPDATED") {
+              // bài mới / vừa cập nhật -> cần duyệt
+              showToast("info", `🔔 "${title}" cần được duyệt`);
+            } else if (type === "PROPERTY_STATUS_CHANGED") {
+              // admin đổi trạng thái
+              const st = String(item?.status || "").toLowerCase(); // approved | rejected | pending ...
+              const reason = item?.rejectedReason ? ` (Lý do: ${item.rejectedReason})` : "";
+              const human =
+                st === "approved" ? "đã được DUYỆT" :
+                st === "rejected" ? "BỊ TỪ CHỐI" :
+                "đang CHỜ DUYỆT";
+              showToast("info", `🔔 "${title}" ${human}${reason}`);
+            } else {
+              // fallback
+              showToast("info", `🔔 ${title}`);
+            }
           } catch (e) {
             // ignore parse errors
           }

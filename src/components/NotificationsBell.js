@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchNotifications, markAllReadServer, markOneRead } from "../redux/slices/notificationsSlice";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 export default function NotificationsBell() {
   const dispatch = useDispatch();
@@ -98,10 +98,10 @@ export default function NotificationsBell() {
             )}
 
             {items.map(n => (
-              <div key={n.notificationId} className={`p-3 ${n.isRead ? "bg-white" : "bg-amber-50/60"}`}>
+              <div key={n.notificationId} className={`p-3 ${n.isRead ? "bg-white" : "bg-brandBtn/30"}`}>
                 <div className="flex items-start gap-2">
                   {/* icon đơn giản; nếu sau này backend trả avatar người gửi thì thay bằng <img> */}
-                  <div className="h-8 w-8 rounded-full bg-amber-200 grid place-items-center text-[11px] font-bold text-amber-900">
+                  <div className="h-8 w-8 rounded-full bg-amber-300 grid place-items-center text-[11px] font-bold text-amber-900">
                     !
                   </div>
 
