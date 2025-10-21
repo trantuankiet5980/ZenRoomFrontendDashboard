@@ -5,7 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Properties from "./pages/properties/Properties";
 import Bookings from "./pages/Bookings";
-import Contracts from "./pages/Contracts";
+// import Contracts from "./pages/Contracts";
 import Payments from "./pages/Payments";
 import Invoices from "./pages/Invoices";
 import DiscountCodes from "./pages/DiscountCodes";
