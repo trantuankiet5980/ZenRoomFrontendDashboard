@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOverview, fetchRevenueSummary, fetchRecentBookings } from "../redux/slices/statsSlice";
+import { fetchOverview, fetchRevenueSummary, fetchRecentBookings, fetchPostSummary } from "../redux/slices/statsSlice";
 import RevenueChart from "../components/RevenueChart";
+import PostStatsChart from "../components/PostStatsChart";
 
 function StatCard({ title, value, hint }) {
   return (
@@ -67,6 +68,8 @@ export default function Dashboard() {
     overview = {},
     revenueSummary,
     revenueLoading = false,
+    postSummary,
+    postLoading = false,
     recentBookings = [],
     loading = false,
   } = useSelector((s) => s.stats || {});
@@ -78,12 +81,23 @@ export default function Dashboard() {
     month: now.getMonth() + 1,
     day: now.getDate(),
   });
+  const [postPeriod, setPostPeriod] = useState("MONTH");
+  const [postFilters, setPostFilters] = useState({
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+  });
 
   const daysInSelectedMonth = useMemo(() => {
     const year = Number(filters.year) || now.getFullYear();
     const month = Number(filters.month) || 1;
     return new Date(year, month, 0).getDate();
   }, [filters.year, filters.month, now]);
+  const postDaysInSelectedMonth = useMemo(() => {
+    const year = Number(postFilters.year) || now.getFullYear();
+    const month = Number(postFilters.month) || 1;
+    return new Date(year, month, 0).getDate();
+  }, [postFilters.year, postFilters.month, now]);
 
   useEffect(() => {
     if (period !== "DAY") return;
@@ -95,6 +109,16 @@ export default function Dashboard() {
       return prev;
     });
   }, [daysInSelectedMonth, period]);
+  useEffect(() => {
+    if (postPeriod !== "DAY") return;
+    setPostFilters((prev) => {
+      const maxDay = postDaysInSelectedMonth;
+      if (!prev.day || prev.day > maxDay) {
+        return { ...prev, day: maxDay };
+      }
+      return prev;
+    });
+  }, [postDaysInSelectedMonth, postPeriod]);
 
   useEffect(() => {
     dispatch(fetchOverview());
@@ -120,9 +144,31 @@ export default function Dashboard() {
     }
     dispatch(fetchRevenueSummary(params));
   }, [dispatch, period, filters.day, filters.month, filters.year, now]);
+  useEffect(() => {
+    const params = {};
+    if (postPeriod === "DAY") {
+      const year = Number(postFilters.year) || now.getFullYear();
+      const month = Number(postFilters.month) || now.getMonth() + 1;
+      const day = Number(postFilters.day) || now.getDate();
+      params.day = day;
+      params.month = month;
+      params.year = year;
+    } else if (postPeriod === "MONTH") {
+      const year = Number(postFilters.year) || now.getFullYear();
+      const month = Number(postFilters.month) || now.getMonth() + 1;
+      params.month = month;
+      params.year = year;
+    } else {
+      params.year = Number(postFilters.year) || now.getFullYear();
+    }
+    dispatch(fetchPostSummary(params));
+  }, [dispatch, postPeriod, postFilters.day, postFilters.month, postFilters.year, now]);
 
   const handleFilterChange = (patch) => {
     setFilters((prev) => ({ ...prev, ...patch }));
+  };
+  const handlePostFilterChange = (patch) => {
+    setPostFilters((prev) => ({ ...prev, ...patch }));
   };
   const totalRevenue = Number(overview?.totalRevenue ?? 0);
 
@@ -164,6 +210,17 @@ export default function Dashboard() {
         onFilterChange={handleFilterChange}
         daysInMonth={daysInSelectedMonth}
         loading={revenueLoading}
+      />
+
+      {/* Thống kê bài đăng */}
+      <PostStatsChart
+        summary={postSummary}
+        period={postPeriod}
+        filters={postFilters}
+        onPeriodChange={setPostPeriod}
+        onFilterChange={handlePostFilterChange}
+        daysInMonth={postDaysInSelectedMonth}
+        loading={postLoading}
       />
 
       <RecentBookings rows={recentBookings} />

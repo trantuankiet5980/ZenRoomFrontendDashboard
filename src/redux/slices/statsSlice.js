@@ -27,6 +27,19 @@ export const fetchRevenueSummary = createAsyncThunk(
   }
 );
 
+/** Property/post summary */
+export const fetchPostSummary = createAsyncThunk(
+  "stats/postSummary",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get("/v1/admin/stats/posts/summary", { params });
+      return data;
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Load properties failed" });
+    }
+  }
+);
+
 /** Recent bookings: [{ bookingId, tenantName, propertyTitle, totalPrice, bookingStatus, createdAt }] */
 export const fetchRecentBookings = createAsyncThunk(
   "stats/recentBookings",
@@ -65,7 +78,17 @@ const slice = createSlice({
       dailyBreakdown: [],
       monthlyBreakdown: [],
     },
+    postSummary: {
+      period: "MONTH",
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      day: null,
+      totalPosts: 0,
+      dailyBreakdown: [],
+      monthlyBreakdown: [],
+    },
     revenueLoading: false,
+    postLoading: false,
     recentBookings: [],   // [{ bookingId, ... }]
     loading: false,
     error: null,
@@ -84,6 +107,15 @@ const slice = createSlice({
     b.addCase(fetchRevenueSummary.rejected, (s,{payload})=>{
       s.revenueLoading = false;
       s.error = payload?.message || "Load revenue failed";
+    });
+    b.addCase(fetchPostSummary.pending, (s)=>{ s.postLoading = true; });
+    b.addCase(fetchPostSummary.fulfilled, (s,{payload})=>{
+      s.postLoading = false;
+      s.postSummary = payload || s.postSummary;
+    });
+    b.addCase(fetchPostSummary.rejected, (s,{payload})=>{
+      s.postLoading = false;
+      s.error = payload?.message || "Load properties failed";
     });
     b.addCase(fetchRecentBookings.fulfilled, (s,{payload})=>{ s.recentBookings = payload; });
   },
