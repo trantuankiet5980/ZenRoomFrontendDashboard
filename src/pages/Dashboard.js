@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOverview, fetchRevenueSummary, fetchRecentBookings, fetchPostSummary } from "../redux/slices/statsSlice";
+import { fetchOverview, fetchUserSummary, fetchRevenueSummary, fetchRecentBookings, fetchPostSummary } from "../redux/slices/statsSlice";
+import UserStatsChart from "../components/UserStatsChart";
 import RevenueChart from "../components/RevenueChart";
 import PostStatsChart from "../components/PostStatsChart";
 
@@ -66,6 +67,8 @@ export default function Dashboard() {
   const dispatch = useDispatch();
   const {
     overview = {},
+    userSummary = {},
+    userLoading = false,
     revenueSummary,
     revenueLoading = false,
     postSummary,
@@ -75,6 +78,12 @@ export default function Dashboard() {
   } = useSelector((s) => s.stats || {});
 
   const now = useMemo(() => new Date(), []);
+  const [userPeriod, setUserPeriod] = useState("MONTH");
+  const [userFilters, setUserFilters] = useState({
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+  });
   const [period, setPeriod] = useState("MONTH");
   const [filters, setFilters] = useState({
     year: now.getFullYear(),
@@ -88,6 +97,12 @@ export default function Dashboard() {
     day: now.getDate(),
   });
 
+  const userDaysInSelectedMonth = useMemo(() => {
+    const year = Number(userFilters.year) || now.getFullYear();
+    const month = Number(userFilters.month) || 1;
+    return new Date(year, month, 0).getDate();
+  }, [userFilters.year, userFilters.month, now]);
+
   const daysInSelectedMonth = useMemo(() => {
     const year = Number(filters.year) || now.getFullYear();
     const month = Number(filters.month) || 1;
@@ -98,6 +113,17 @@ export default function Dashboard() {
     const month = Number(postFilters.month) || 1;
     return new Date(year, month, 0).getDate();
   }, [postFilters.year, postFilters.month, now]);
+
+  useEffect(() => {
+    if (userPeriod !== "DAY") return;
+    setUserFilters((prev) => {
+      const maxDay = userDaysInSelectedMonth;
+      if (!prev.day || prev.day > maxDay) {
+        return { ...prev, day: maxDay };
+      }
+      return prev;
+    });
+  }, [userDaysInSelectedMonth, userPeriod]);
 
   useEffect(() => {
     if (period !== "DAY") return;
@@ -124,6 +150,26 @@ export default function Dashboard() {
     dispatch(fetchOverview());
     dispatch(fetchRecentBookings({ limit: 8 }));
   }, [dispatch]);
+
+  useEffect(() => {
+    const params = {};
+    if (userPeriod === "DAY") {
+      const year = Number(userFilters.year) || now.getFullYear();
+      const month = Number(userFilters.month) || now.getMonth() + 1;
+      const day = Number(userFilters.day) || now.getDate();
+      params.day = day;
+      params.month = month;
+      params.year = year;
+    } else if (userPeriod === "MONTH") {
+      const year = Number(userFilters.year) || now.getFullYear();
+      const month = Number(userFilters.month) || now.getMonth() + 1;
+      params.month = month;
+      params.year = year;
+    } else {
+      params.year = Number(userFilters.year) || now.getFullYear();
+    }
+    dispatch(fetchUserSummary(params));
+  }, [dispatch, userPeriod, userFilters.day, userFilters.month, userFilters.year, now]);
 
   useEffect(() => {
     const params = {};
@@ -164,6 +210,9 @@ export default function Dashboard() {
     dispatch(fetchPostSummary(params));
   }, [dispatch, postPeriod, postFilters.day, postFilters.month, postFilters.year, now]);
 
+  const handleUserFilterChange = (patch) => {
+    setUserFilters((prev) => ({ ...prev, ...patch }));
+  };
   const handleFilterChange = (patch) => {
     setFilters((prev) => ({ ...prev, ...patch }));
   };
@@ -201,6 +250,17 @@ export default function Dashboard() {
         <StatCard title="Hoàn tất" value={overview.completedBookings ?? 0} />
         <StatCard title="Đã hủy" value={overview.cancelledBookings ?? 0} />
       </div>
+      {/* Thống kê người dùng */}
+      <UserStatsChart
+        summary={userSummary}
+        period={userPeriod}
+        filters={userFilters}
+        onPeriodChange={setUserPeriod}
+        onFilterChange={handleUserFilterChange}
+        daysInMonth={userDaysInSelectedMonth}
+        loading={userLoading}
+      />
+      
       {/* Biểu đồ doanh thu */}
       <RevenueChart
         summary={revenueSummary}

@@ -14,6 +14,19 @@ export const fetchOverview = createAsyncThunk(
   }
 );
 
+/** User summary */
+export const fetchUserSummary = createAsyncThunk(
+  "stats/userSummary",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get("/v1/admin/stats/users/summary", { params });
+      return data;
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Load users failed" });
+    }
+  }
+);
+
 /** Revenue summary */
 export const fetchRevenueSummary = createAsyncThunk(
   "stats/revenueSummary",
@@ -69,6 +82,15 @@ const slice = createSlice({
       cancelledBookings: 0,
       totalRevenue: 0,
     },
+    userSummary: {
+      period: "MONTH",
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      day: null,
+      totalUsers: 0,
+      dailyBreakdown: [],
+      monthlyBreakdown: [],
+    },
     revenueSummary: {
       period: "MONTH",
       year: new Date().getFullYear(),
@@ -99,6 +121,16 @@ const slice = createSlice({
     b.addCase(fetchOverview.fulfilled, (s,{payload})=>{ s.loading = false; s.overview = { ...s.overview, ...payload }; });
     b.addCase(fetchOverview.rejected, (s,{payload})=>{ s.loading = false; s.error = payload?.message || "Load overview failed"; });
 
+    b.addCase(fetchUserSummary.pending, (s)=>{ s.userLoading = true; });
+    b.addCase(fetchUserSummary.fulfilled, (s,{payload})=>{
+      s.userLoading = false;
+      s.userSummary = payload || s.userSummary;
+    });
+    b.addCase(fetchUserSummary.rejected, (s,{payload})=>{
+      s.userLoading = false;
+      s.error = payload?.message || "Load users failed";
+    });
+    
     b.addCase(fetchRevenueSummary.pending, (s)=>{ s.revenueLoading = true; });
     b.addCase(fetchRevenueSummary.fulfilled, (s,{payload})=>{
       s.revenueLoading = false;
