@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  fetchProperties, setStatus, setQ, setPage, setSize,
+  fetchProperties, setStatus, setQ, setPage, setSize, setCreatedFrom, setCreatedTo,
   fetchPropertyById, clearDetail,
   updatePropertyStatus, deleteProperty,
 } from "../../redux/slices/propertiesSlice";
@@ -17,14 +17,14 @@ export default function Properties() {
   const dispatch = useDispatch();
   const {
     items, page, size, totalPages, totalElements,
-    status, q, loading, error,
+    status, q, createdFrom, createdTo, loading, error,
     detail, detailLoading, actionLoadingId
   } = useSelector(s => s.properties);
 
   // fetch list khi params đổi
   useEffect(() => {
-    dispatch(fetchProperties({ page, size, status, q }));
-  }, [dispatch, page, size, status, q]);
+    dispatch(fetchProperties({ page, size, status, q, createdFrom, createdTo }));
+  }, [dispatch, page, size, status, q, createdFrom, createdTo]);
 
   // debounce search local
   const [kw, setKw] = useState(q || "");
@@ -98,25 +98,39 @@ export default function Properties() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Quản lý bài đăng</h1>
-          <p className="text-slate-500">
-            Lọc theo trạng thái & tìm kiếm theo tiêu đề/mô tả/tòa/phòng
-          </p>
-        </div>
+      <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-amber-50 via-white to-white p-6 shadow-sm">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Bảng điều khiển bài đăng</p>
+              <h1 className="text-3xl font-bold text-slate-800">Quản lý bài đăng</h1>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                Theo dõi trạng thái phê duyệt, tìm kiếm theo tiêu đề/mô tả/tòa/phòng và quản lý lịch đăng bài một cách trực quan.
+              </p>
+            </div>
 
-        <Filters
-          kw={kw}
-          onKwChange={setKw}
-          size={size}
-          onSizeChange={(n) => dispatch(setSize(n))}
-          status={status}
-          onStatusChange={(st) => dispatch(setStatus(st))}
-        />
+            <div className="grid auto-cols-max gap-1 text-right text-xs text-slate-500 md:text-sm">
+              <span>Tổng số bài đăng: <b className="text-slate-800">{totalElements}</b></span>
+              <span>Đang hiển thị: <b className="text-slate-800">{pageInfo.from}</b>–<b className="text-slate-800">{pageInfo.to}</b></span>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <Filters
+        kw={kw}
+        onKwChange={setKw}
+        size={size}
+        onSizeChange={(n) => dispatch(setSize(n))}
+        status={status}
+        onStatusChange={(st) => dispatch(setStatus(st))}
+        createdFrom={createdFrom}
+        createdTo={createdTo}
+        onCreatedFromChange={(v) => dispatch(setCreatedFrom(v))}
+        onCreatedToChange={(v) => dispatch(setCreatedTo(v))}
+      />
 
       {/* Table */}
       <PropertiesTable
