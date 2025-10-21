@@ -53,11 +53,9 @@ const slice = createSlice({
       approvedProperties: 0,
       pendingProperties: 0,
       totalBookings: 0,
-      pendingBookings: 0,
-      approvedBookings: 0,
       completedBookings: 0,
       cancelledBookings: 0,
-      revenueLast30Days: 0,
+      totalRevenue: 0,
     },
     revenue: [],          // [{ date, revenue }]
     recentBookings: [],   // [{ bookingId, ... }]

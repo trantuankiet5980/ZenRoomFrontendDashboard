@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { fetchOverview, fetchRevenue, fetchRecentBookings } from "../redux/slices/statsSlice";
 import RevenueChart from "../components/RevenueChart";
@@ -64,19 +64,14 @@ function RecentBookings({ rows }) {
 export default function Dashboard() {
   const dispatch = useDispatch();
   const { overview = {}, revenue = [], recentBookings = [], loading = false } =
-  useSelector((s) => s.stats || {});
+    useSelector((s) => s.stats || {});
 
   useEffect(() => {
     dispatch(fetchOverview());
     dispatch(fetchRevenue({ days: 30 }));
     dispatch(fetchRecentBookings({ limit: 8 }));
   }, [dispatch]);
-
-  // revenue: [{ date, revenue }]
-  const revenueTotal = useMemo(
-    () => revenue.reduce((sum, d) => sum + (Number(d.revenue) || 0), 0),
-    [revenue]
-  );
+  const totalRevenue = Number(overview?.totalRevenue ?? 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -86,22 +81,26 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Tổng người dùng" value={overview.totalUsers} hint={`Đang hoạt động: ${overview.activeUsers}`} />
-        <StatCard title="Chủ nhà (Landlords)" value={overview.landlords} />
-        <StatCard title="Khách thuê (Tenants)" value={overview.tenants} />
-        <StatCard title="Doanh thu 30 ngày" value={revenueTotal.toLocaleString("vi-VN")+"₫"} />
+        <StatCard
+          title="Tổng người dùng"
+          value={overview.totalUsers ?? 0}
+          hint={`Đang hoạt động: ${overview.activeUsers ?? 0}`}
+        />
+        <StatCard title="Chủ nhà (Landlords)" value={overview.landlords ?? 0} />
+        <StatCard title="Khách thuê (Tenants)" value={overview.tenants ?? 0} />
+        <StatCard title="Tổng doanh thu" value={totalRevenue.toLocaleString("vi-VN") + "₫"} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard title="Tổng bài đăng" value={overview.totalProperties} />
-        <StatCard title="Đã duyệt" value={overview.approvedProperties} />
-        <StatCard title="Chờ duyệt" value={overview.pendingProperties} />
+        <StatCard title="Tổng bài đăng" value={overview.totalProperties ?? 0} />
+        <StatCard title="Đã duyệt" value={overview.approvedProperties ?? 0} />
+        <StatCard title="Chờ duyệt" value={overview.pendingProperties ?? 0} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Tổng đặt phòng/căn hộ" value={overview.totalBookings} />
-        <StatCard title="Chờ duyệt" value={overview.pendingBookings} />
-        <StatCard title="Đã duyệt" value={overview.approvedBookings} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard title="Tổng đặt phòng/căn hộ" value={overview.totalBookings ?? 0} />
+        <StatCard title="Hoàn tất" value={overview.completedBookings ?? 0} />
+        <StatCard title="Đã hủy" value={overview.cancelledBookings ?? 0} />
         <StatCard title="Hoàn tất / Hủy" value={`${overview.completedBookings} / ${overview.cancelledBookings}`} />
       </div>
       {/* Biểu đồ doanh thu */}
