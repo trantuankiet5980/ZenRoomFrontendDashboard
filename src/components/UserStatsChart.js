@@ -17,11 +17,11 @@ const PERIOD_OPTIONS = [
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, idx) => idx + 1);
 
-function formatCurrency(value) {
-  return `${Number(value || 0).toLocaleString("vi-VN")}₫`;
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString("vi-VN");
 }
 
-export default function RevenueChart({
+export default function UserStatsChart({
   summary,
   period,
   filters,
@@ -30,7 +30,7 @@ export default function RevenueChart({
   daysInMonth = 31,
   loading = false,
 }) {
-  const totalRevenue = Number(summary?.totalRevenue || 0);
+  const totalUsers = Number(summary?.totalUsers || 0);
   const periodLabel = useMemo(() => {
     switch (summary?.period) {
       case "DAY":
@@ -43,6 +43,7 @@ export default function RevenueChart({
         return null;
     }
   }, [summary?.period]);
+
   const breakdownItems = useMemo(() => {
     if (!summary) return [];
     if (period === "YEAR") {
@@ -58,7 +59,7 @@ export default function RevenueChart({
         .map((item) => ({
           label: `T${item.month}`,
           tooltipLabel: `Tháng ${item.month}/${item.year}`,
-          revenue: Number(item.revenue) || 0,
+          totalUsers: Number(item.totalUsers) || 0,
           sortValue: new Date(Number(item.year) || 0, (Number(item.month) || 1) - 1, 1).getTime(),
         }))
         .sort((a, b) => a.sortValue - b.sortValue);
@@ -84,7 +85,7 @@ export default function RevenueChart({
         return {
           label,
           tooltipLabel,
-          revenue: Number(item.revenue) || 0,
+          totalUsers: Number(item.totalUsers) || 0,
           sortValue,
         };
       })
@@ -104,9 +105,10 @@ export default function RevenueChart({
       .sort((a, b) => a - b);
   }, [summary?.year, filters?.year]);
 
-  const dayOptions = useMemo(() => (
-    Array.from({ length: Number(daysInMonth) || 31 }, (_, idx) => idx + 1)
-  ), [daysInMonth]);
+  const dayOptions = useMemo(
+    () => Array.from({ length: Number(daysInMonth) || 31 }, (_, idx) => idx + 1),
+    [daysInMonth]
+  );
 
   const selectedYear = Number(filters?.year) || summary?.year;
   const selectedMonth = Number(filters?.month) || summary?.month;
@@ -116,11 +118,15 @@ export default function RevenueChart({
     if (!breakdownItems.length) return [];
     if (period === "YEAR") {
       return [...breakdownItems]
-        .sort((a, b) => new Date(a.year || 0, (a.month || 1) - 1, 1) - new Date(b.year || 0, (b.month || 1) - 1, 1))
+        .sort(
+          (a, b) =>
+            new Date(a.year || 0, (a.month || 1) - 1, 1) -
+            new Date(b.year || 0, (b.month || 1) - 1, 1)
+        )
         .map((item) => ({
           key: `${item.year}-${item.month}`,
           label: `Tháng ${item.month}/${item.year}`,
-          revenue: item.revenue,
+          totalUsers: item.totalUsers,
         }));
     }
     return [...breakdownItems]
@@ -132,7 +138,7 @@ export default function RevenueChart({
       .map((item) => ({
         key: item.date,
         label: item.date,
-        revenue: item.revenue,
+        totalUsers: item.totalUsers,
       }));
   }, [breakdownItems, period]);
 
@@ -140,8 +146,8 @@ export default function RevenueChart({
     <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="text-sm font-medium text-slate-700">Thống kê doanh thu</div>
-          <div className="text-xs text-slate-500">Tổng: {formatCurrency(totalRevenue)}</div>
+          <div className="text-sm font-medium text-slate-700">Thống kê người dùng</div>
+          <div className="text-xs text-slate-500">Tổng: {formatNumber(totalUsers)} người dùng</div>
           {periodLabel ? (
             <div className="text-xs text-slate-400">Chế độ: {periodLabel}</div>
           ) : null}
@@ -154,8 +160,8 @@ export default function RevenueChart({
               onClick={() => onPeriodChange?.(option.value)}
               className={`rounded-full border px-3 py-1 transition ${
                 period === option.value
-                  ? "border-amber-500 bg-amber-500 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-amber-300 hover:text-amber-600"
+                  ? "border-emerald-500 bg-emerald-500 text-white"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-emerald-300 hover:text-emerald-600"
               }`}
             >
               {option.label}
@@ -203,24 +209,20 @@ export default function RevenueChart({
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 24, left: 0, bottom: 10 }}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="label"
-                tick={{ fontSize: 12, fill: "#475569" }}
-                tickMargin={8}
-              />
+              <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#475569" }} tickMargin={8} />
               <YAxis
                 tick={{ fontSize: 12, fill: "#475569" }}
                 tickFormatter={(v) => v.toLocaleString("vi-VN")}
-                width={80}
+                width={60}
               />
               <Tooltip
-                formatter={(value) => [formatCurrency(value), "Doanh thu"]}
+                formatter={(value) => [formatNumber(value), "Người dùng"]}
                 labelFormatter={(_, payload) => payload?.[0]?.payload?.tooltipLabel || ""}
               />
               <Line
                 type="monotone"
-                dataKey="revenue"
-                stroke="#fbb040"
+                dataKey="totalUsers"
+                stroke="#10b981"
                 strokeWidth={3}
                 dot={{ r: 3 }}
                 activeDot={{ r: 5 }}
@@ -229,27 +231,27 @@ export default function RevenueChart({
           </ResponsiveContainer>
         ) : (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
-            {loading ? "Đang tải dữ liệu doanh thu…" : "Chưa có dữ liệu"}
+            {loading ? "Đang tải dữ liệu người dùng…" : "Chưa có dữ liệu"}
           </div>
         )}
       </div>
 
       <div className="mt-4">
         <div className="mb-2 text-sm font-medium text-slate-700">
-          {period === "YEAR" ? "Doanh thu theo tháng" : "Doanh thu theo ngày"}
+          {period === "YEAR" ? "Người dùng theo tháng" : "Người dùng theo ngày"}
         </div>
         {breakdownList.length ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm">
             {breakdownList.map((item) => (
               <div key={item.key} className="text-xs">
-                <div className="font-semibold">{formatCurrency(item.revenue)}</div>
+                <div className="font-semibold">{formatNumber(item.totalUsers)}</div>
                 <div className="text-slate-400">{item.label}</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-sm text-slate-500">
-            {loading ? "Đang tải dữ liệu doanh thu…" : "Chưa có dữ liệu"}
+            {loading ? "Đang tải dữ liệu người dùng…" : "Chưa có dữ liệu"}
           </div>
         )}
       </div>
