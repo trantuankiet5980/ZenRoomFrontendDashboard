@@ -14,14 +14,13 @@ export const fetchOverview = createAsyncThunk(
   }
 );
 
-/** Revenue: [{ date, revenue }] */
-export const fetchRevenue = createAsyncThunk(
-  "stats/revenue",
-  async ({ days = 30 } = {}, { rejectWithValue }) => {
+/** Revenue summary */
+export const fetchRevenueSummary = createAsyncThunk(
+  "stats/revenueSummary",
+  async (params = {}, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.get("/v1/admin/stats/revenue", { params: { days } });
-      // Chuẩn hóa đề phòng server trả 1 object đơn lẻ:
-      return Array.isArray(data) ? data : (data ? [data] : []);
+      const { data } = await axiosInstance.get("/v1/admin/stats/revenue/summary", { params });
+      return data;
     } catch (e) {
       return rejectWithValue(e.response?.data || { message: "Load revenue failed" });
     }
@@ -57,7 +56,16 @@ const slice = createSlice({
       cancelledBookings: 0,
       totalRevenue: 0,
     },
-    revenue: [],          // [{ date, revenue }]
+    revenueSummary: {
+      period: "MONTH",
+      year: new Date().getFullYear(),
+      month: new Date().getMonth() + 1,
+      day: null,
+      totalRevenue: 0,
+      dailyBreakdown: [],
+      monthlyBreakdown: [],
+    },
+    revenueLoading: false,
     recentBookings: [],   // [{ bookingId, ... }]
     loading: false,
     error: null,
@@ -68,7 +76,15 @@ const slice = createSlice({
     b.addCase(fetchOverview.fulfilled, (s,{payload})=>{ s.loading = false; s.overview = { ...s.overview, ...payload }; });
     b.addCase(fetchOverview.rejected, (s,{payload})=>{ s.loading = false; s.error = payload?.message || "Load overview failed"; });
 
-    b.addCase(fetchRevenue.fulfilled, (s,{payload})=>{ s.revenue = payload; });
+    b.addCase(fetchRevenueSummary.pending, (s)=>{ s.revenueLoading = true; });
+    b.addCase(fetchRevenueSummary.fulfilled, (s,{payload})=>{
+      s.revenueLoading = false;
+      s.revenueSummary = payload || s.revenueSummary;
+    });
+    b.addCase(fetchRevenueSummary.rejected, (s,{payload})=>{
+      s.revenueLoading = false;
+      s.error = payload?.message || "Load revenue failed";
+    });
     b.addCase(fetchRecentBookings.fulfilled, (s,{payload})=>{ s.recentBookings = payload; });
   },
 });

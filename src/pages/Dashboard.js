@@ -1,6 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOverview, fetchRevenue, fetchRecentBookings } from "../redux/slices/statsSlice";
+import { fetchOverview, fetchRevenueSummary, fetchRecentBookings } from "../redux/slices/statsSlice";
 import RevenueChart from "../components/RevenueChart";
 
 function StatCard({ title, value, hint }) {
@@ -63,14 +63,67 @@ function RecentBookings({ rows }) {
 
 export default function Dashboard() {
   const dispatch = useDispatch();
-  const { overview = {}, revenue = [], recentBookings = [], loading = false } =
-    useSelector((s) => s.stats || {});
+  const {
+    overview = {},
+    revenueSummary,
+    revenueLoading = false,
+    recentBookings = [],
+    loading = false,
+  } = useSelector((s) => s.stats || {});
+
+  const now = useMemo(() => new Date(), []);
+  const [period, setPeriod] = useState("MONTH");
+  const [filters, setFilters] = useState({
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+  });
+
+  const daysInSelectedMonth = useMemo(() => {
+    const year = Number(filters.year) || now.getFullYear();
+    const month = Number(filters.month) || 1;
+    return new Date(year, month, 0).getDate();
+  }, [filters.year, filters.month, now]);
+
+  useEffect(() => {
+    if (period !== "DAY") return;
+    setFilters((prev) => {
+      const maxDay = daysInSelectedMonth;
+      if (!prev.day || prev.day > maxDay) {
+        return { ...prev, day: maxDay };
+      }
+      return prev;
+    });
+  }, [daysInSelectedMonth, period]);
 
   useEffect(() => {
     dispatch(fetchOverview());
-    dispatch(fetchRevenue({ days: 30 }));
     dispatch(fetchRecentBookings({ limit: 8 }));
   }, [dispatch]);
+
+  useEffect(() => {
+    const params = {};
+    if (period === "DAY") {
+      const year = Number(filters.year) || now.getFullYear();
+      const month = Number(filters.month) || now.getMonth() + 1;
+      const day = Number(filters.day) || now.getDate();
+      params.day = day;
+      params.month = month;
+      params.year = year;
+    } else if (period === "MONTH") {
+      const year = Number(filters.year) || now.getFullYear();
+      const month = Number(filters.month) || now.getMonth() + 1;
+      params.month = month;
+      params.year = year;
+    } else {
+      params.year = Number(filters.year) || now.getFullYear();
+    }
+    dispatch(fetchRevenueSummary(params));
+  }, [dispatch, period, filters.day, filters.month, filters.year, now]);
+
+  const handleFilterChange = (patch) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
   const totalRevenue = Number(overview?.totalRevenue ?? 0);
 
   return (
@@ -101,25 +154,17 @@ export default function Dashboard() {
         <StatCard title="Tổng đặt phòng/căn hộ" value={overview.totalBookings ?? 0} />
         <StatCard title="Hoàn tất" value={overview.completedBookings ?? 0} />
         <StatCard title="Đã hủy" value={overview.cancelledBookings ?? 0} />
-        <StatCard title="Hoàn tất / Hủy" value={`${overview.completedBookings} / ${overview.cancelledBookings}`} />
       </div>
       {/* Biểu đồ doanh thu */}
-      <RevenueChart data={revenue} />
-
-      {/* Revenue list (placeholder đơn giản) */}
-      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-        <div className="mb-2 text-sm font-medium text-slate-700">Doanh thu 30 ngày</div>
-        {revenue?.length ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 text-sm">
-            {revenue.map(r => (
-              <div key={r.date} className="text-xs">
-                <div className="font-semibold">{(Number(r.revenue)||0).toLocaleString("vi-VN")}₫</div>
-                <div className="text-slate-400">{r.date}</div>
-              </div>
-            ))}
-          </div>
-        ) : <div className="text-slate-500 text-sm">Chưa có dữ liệu</div>}
-      </div>
+      <RevenueChart
+        summary={revenueSummary}
+        period={period}
+        filters={filters}
+        onPeriodChange={setPeriod}
+        onFilterChange={handleFilterChange}
+        daysInMonth={daysInSelectedMonth}
+        loading={revenueLoading}
+      />
 
       <RecentBookings rows={recentBookings} />
 
