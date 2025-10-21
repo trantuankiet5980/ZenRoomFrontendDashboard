@@ -5,7 +5,13 @@ const TABS = [
   { key: "REJECTED", label: "Từ chối" }
 ];
 
-export default function Filters({ kw, onKwChange, size, onSizeChange, status, onStatusChange }) {
+export default function Filters({
+  kw, onKwChange,
+  size, onSizeChange,
+  status, onStatusChange,
+  createdFrom, createdTo,
+  onCreatedFromChange, onCreatedToChange,
+}) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <input
@@ -37,6 +43,29 @@ export default function Filters({ kw, onKwChange, size, onSizeChange, status, on
             {t.label}
           </button>
         ))}
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-slate-600">
+        <label className="flex items-center gap-2">
+          <span>Từ ngày</span>
+          <input
+            type="date"
+            value={createdFrom || ""}
+            onChange={(e) => onCreatedFromChange(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm"
+            max={createdTo || undefined}
+          />
+        </label>
+        <label className="flex items-center gap-2">
+          <span>Đến ngày</span>
+          <input
+            type="date"
+            value={createdTo || ""}
+            onChange={(e) => onCreatedToChange(e.target.value)}
+            className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm"
+            min={createdFrom || undefined}
+          />
+        </label>
       </div>
     </div>
   );

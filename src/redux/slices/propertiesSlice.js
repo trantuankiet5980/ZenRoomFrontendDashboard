@@ -7,13 +7,15 @@ export const fetchProperties = createAsyncThunk(
   "properties/fetchList",
   async (params, { rejectWithValue }) => {
     try {
-      const { page = 0, size = 10, status, q } = params || {};
+      const { page = 0, size = 10, status, q, createdFrom, createdTo } = params || {};
       const { data } = await axiosInstance.get("/v1/properties", {
         params: {
           page, size,
           ...(status ? { status } : {}),
           ...(status ? { postStatus: status } : {}),
           ...(q ? { q } : {}),
+          ...(createdFrom ? { createdFrom } : {}),
+          ...(createdTo ? { createdTo } : {}),
           sort: "createdAt,DESC",
         },
       });
@@ -82,6 +84,8 @@ const slice = createSlice({
     totalElements: 0,
     status: "",   // '', 'PENDING', 'APPROVED', 'REJECTED', 'INACTIVE'
     q: "",
+    createdFrom: "",
+    createdTo: "",
 
     loading: false,
     error: null,
@@ -98,6 +102,8 @@ const slice = createSlice({
     setQ(state, { payload }) { state.q = payload; state.page = 0; },
     setPage(state, { payload }) { state.page = payload; },
     setSize(state, { payload }) { state.size = payload; state.page = 0; },
+    setCreatedFrom(state, { payload }) { state.createdFrom = payload; state.page = 0; },
+    setCreatedTo(state, { payload }) { state.createdTo = payload; state.page = 0; },
     clearError(state) { state.error = null; },
     clearDetail(state) { state.detail = null; },
   },
@@ -162,6 +168,6 @@ const slice = createSlice({
 });
 
 export const {
-  setStatus, setQ, setPage, setSize, clearError, clearDetail
+  setStatus, setQ, setPage, setSize, setCreatedFrom, setCreatedTo, clearError, clearDetail
 } = slice.actions;
 export default slice.reducer;

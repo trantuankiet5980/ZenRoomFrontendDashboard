@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  fetchProperties, setStatus, setQ, setPage, setSize,
+  fetchProperties, setStatus, setQ, setPage, setSize, setCreatedFrom, setCreatedTo,
   fetchPropertyById, clearDetail,
   updatePropertyStatus, deleteProperty,
 } from "../../redux/slices/propertiesSlice";
@@ -17,14 +17,14 @@ export default function Properties() {
   const dispatch = useDispatch();
   const {
     items, page, size, totalPages, totalElements,
-    status, q, loading, error,
+    status, q, createdFrom, createdTo, loading, error,
     detail, detailLoading, actionLoadingId
   } = useSelector(s => s.properties);
 
   // fetch list khi params đổi
   useEffect(() => {
-    dispatch(fetchProperties({ page, size, status, q }));
-  }, [dispatch, page, size, status, q]);
+    dispatch(fetchProperties({ page, size, status, q, createdFrom, createdTo }));
+  }, [dispatch, page, size, status, q, createdFrom, createdTo]);
 
   // debounce search local
   const [kw, setKw] = useState(q || "");
@@ -115,6 +115,10 @@ export default function Properties() {
           onSizeChange={(n) => dispatch(setSize(n))}
           status={status}
           onStatusChange={(st) => dispatch(setStatus(st))}
+          createdFrom={createdFrom}
+          createdTo={createdTo}
+          onCreatedFromChange={(v) => dispatch(setCreatedFrom(v))}
+          onCreatedToChange={(v) => dispatch(setCreatedTo(v))}
         />
       </div>
 
