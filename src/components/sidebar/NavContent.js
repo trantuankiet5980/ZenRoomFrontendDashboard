@@ -29,7 +29,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
 
       {/* Bài đăng */}
       <Section
-        title="Bài đăng"
+        title="Quản lý bài đăng"
         collapsed={collapsed}
         open={openSec.properties}
         onToggle={() => onToggle("properties")}
@@ -45,7 +45,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         onToggle={() => onToggle("bookings")}
       >
         <Item to="/bookings" label="Bookings" labelCls={labelCls} onNavigate={onNavigate} />
-        <Item to="/contracts" label="Contracts" labelCls={labelCls} onNavigate={onNavigate} />
+        {/* <Item to="/contracts" label="Contracts" labelCls={labelCls} onNavigate={onNavigate} /> */}
         <Item to="/invoices" label="Invoices" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/payments" label="Payments" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
