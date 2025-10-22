@@ -5,6 +5,7 @@ import propertiesReducer from "./slices/propertiesSlice";
 import notificationsReducer from "./slices/notificationsSlice";
 import usersReducer from "./slices/usersSlice";
 import invoicesReducer from "./slices/invoicesSlice";
+import discountCodesReducer from "./slices/discountCodesSlice";
 
 const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ const store = configureStore({
     notifications: notificationsReducer,
     users: usersReducer,
     invoices: invoicesReducer,
+    discountCodes: discountCodesReducer,
   },
 });
 
