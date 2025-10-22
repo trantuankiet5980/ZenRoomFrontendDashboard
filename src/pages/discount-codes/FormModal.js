@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { DISCOUNT_STATUS_OPTIONS, DISCOUNT_TYPE_OPTIONS } from "./constants";
+import { DISCOUNT_TYPE_OPTIONS } from "./constants";
 import { formatDateInput } from "../../utils/format";
 
 const DEFAULT_FORM = {
@@ -192,21 +192,6 @@ export default function DiscountCodeFormModal({
             />
             {errors.usageLimit ? <span className="text-xs text-rose-500">{errors.usageLimit}</span> : null}
           </label>
-
-          <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
-            Trạng thái
-            <select
-              value={formValues.status}
-              onChange={(event) => handleChange("status", event.target.value)}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-            >
-              {DISCOUNT_STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
         </div>
 
         {dateError ? (
@@ -243,21 +228,25 @@ export default function DiscountCodeFormModal({
   );
 }
 
-function mapInitialValues(values = {}) {
+function mapInitialValues(values) {
+  const safeValues = values && typeof values === "object" ? values : {};
+
   return {
-    codeId: values.codeId || "",
-    code: values.code || "",
-    description: values.description || "",
-    discountType: values.discountType || "FIXED",
+    codeId: safeValues.codeId || "",
+    code: safeValues.code || "",
+    description: safeValues.description || "",
+    discountType: safeValues.discountType || "FIXED",
     discountValue:
-      values.discountValue === null || values.discountValue === undefined
+      safeValues.discountValue === null || safeValues.discountValue === undefined
         ? ""
-        : String(values.discountValue),
-    validFrom: formatDateInput(values.validFrom),
-    validTo: formatDateInput(values.validTo),
+        : String(safeValues.discountValue),
+    validFrom: formatDateInput(safeValues.validFrom),
+    validTo: formatDateInput(safeValues.validTo),
     usageLimit:
-      values.usageLimit === null || values.usageLimit === undefined ? "" : String(values.usageLimit),
-    status: values.status || "ACTIVE",
+      safeValues.usageLimit === null || safeValues.usageLimit === undefined
+        ? ""
+        : String(safeValues.usageLimit),
+    status: safeValues.status || "ACTIVE",
   };
 }
 

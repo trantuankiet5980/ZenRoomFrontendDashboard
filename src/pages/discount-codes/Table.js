@@ -49,11 +49,7 @@ export default function DiscountCodesTable({
             )}
 
             {items.map((item) => {
-              const statusMeta = DISCOUNT_STATUS_META[item.status] || {
-                label: item.status || "Không rõ",
-                className:
-                  "inline-flex items-center gap-1 rounded-full bg-slate-200 px-3 py-[2px] text-xs font-semibold text-slate-600",
-              };
+              const statusMeta = resolveStatusMeta(item);
               const isUpdating = updatingId === item.codeId;
               const isDeleting = deletingId === item.codeId;
               return (
@@ -187,4 +183,38 @@ function renderUsageLimit(limit) {
   if (limit === null || limit === undefined) return "Không giới hạn";
   if (limit === 0) return "0";
   return String(limit);
+}
+
+function resolveStatusMeta(item) {
+  const rawStatus = item?.status ?? item?.discountCodeStatus ?? inferStatusFromDates(item?.validFrom, item?.validTo);
+  const normalizedStatus = normalizeStatus(rawStatus);
+
+  if (normalizedStatus && DISCOUNT_STATUS_META[normalizedStatus]) {
+    return DISCOUNT_STATUS_META[normalizedStatus];
+  }
+
+  const label = typeof rawStatus === "string" && rawStatus.trim() ? rawStatus : "Không rõ";
+
+  return {
+    label,
+    className:
+      "inline-flex items-center gap-1 rounded-full bg-slate-200 px-3 py-[2px] text-xs font-semibold text-slate-600",
+  };
+}
+
+function normalizeStatus(value) {
+  if (typeof value === "string") {
+    return value.trim().toUpperCase();
+  }
+  return "";
+}
+
+function inferStatusFromDates(validFrom, validTo) {
+  const now = new Date();
+  const end = validTo ? new Date(validTo) : null;
+  if (end && !Number.isNaN(end.getTime()) && end < now) {
+    return "EXPIRED";
+  }
+
+  return "ACTIVE";
 }

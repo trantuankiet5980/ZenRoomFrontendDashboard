@@ -296,7 +296,9 @@ function buildQueryParams({ q, statuses, validFrom, validTo, page, size }) {
   };
 
   if (q) params.q = q;
-  if (Array.isArray(statuses) && statuses.length) params.statuses = statuses;
+  if (Array.isArray(statuses) && statuses.length) {
+    params.statuses = statuses.join(",");
+  }
   if (validFrom) params.validFrom = validFrom;
   if (validTo) params.validTo = validTo;
 
