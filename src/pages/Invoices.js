@@ -8,7 +8,7 @@ import InvoiceTable from "./invoices/Table";
 import InvoiceDetailDrawer from "./invoices/DetailDrawer";
 import ConfirmModal from "./users/ConfirmModal";
 import { fetchInvoices, refundInvoice, clearInvoicesError } from "../redux/slices/invoicesSlice";
-import { fetchRevenueSummary } from "../redux/slices/statsSlice";
+import { fetchRevenueSummary, fetchOverview } from "../redux/slices/statsSlice";
 import { showToast } from "../utils/toast";
 import { formatCurrency } from "../utils/format";
 
@@ -19,9 +19,9 @@ const createInitialFilters = () => ({
 });
 
 export default function Invoices() {
-    const dispatch = useDispatch();
+  const dispatch = useDispatch();
   const { data, status, error, actionLoadingId } = useSelector((state) => state.invoices);
-  const { revenueSummary, revenueLoading } = useSelector((state) => state.stats);
+  const { overview, revenueSummary, revenueLoading } = useSelector((state) => state.stats);
 
   const [filters, setFilters] = useState(createInitialFilters);
   const [page, setPage] = useState(0);
@@ -122,6 +122,10 @@ export default function Invoices() {
     }
     dispatch(fetchRevenueSummary(params));
   }, [dispatch, revenuePeriod, revenueFilters.day, revenueFilters.month, revenueFilters.year, now]);
+
+  useEffect(() => {
+    dispatch(fetchOverview());
+  }, [dispatch]);
 
   const pageInfo = useMemo(() => {
     if (!totalElements) return { from: 0, to: 0 };
@@ -230,7 +234,7 @@ export default function Invoices() {
     setRevenueFilters((prev) => ({ ...prev, ...patch }));
   };
 
-  const totalRevenue = Number(revenueSummary?.totalRevenue) || 0;
+  const totalRevenue = Number(overview?.totalRevenue) || 0;
 
   const refundTitle = refundTarget
     ? `Xác nhận hoàn tiền hóa đơn ${refundTarget.invoiceNo || refundTarget.invoiceId}`
@@ -257,7 +261,7 @@ export default function Invoices() {
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             <HeroStat label="Tổng số hóa đơn" value={totalElements.toLocaleString("vi-VN")} hint="Tính theo bộ lọc hiện tại" />
-            <HeroStat label="Doanh thu" value={formatCurrency(totalRevenue)} hint="Theo cấu hình thống kê" />
+            <HeroStat label="Tổng doanh thu" value={formatCurrency(totalRevenue)} hint="Tính từ lúc web/app thành lập" />
             <HeroStat label="Tổng tiền trang hiện tại" value={formatCurrency(pageTotals.total)} hint="Tổng cộng các hóa đơn đang hiển thị" />
           </div>
         </div>
