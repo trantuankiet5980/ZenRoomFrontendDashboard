@@ -8,55 +8,65 @@ import UserDetailDrawer from "./users/DetailDrawer";
 import { showToast } from "../utils/toast";
 import { clearUsersError, fetchUsers } from "../redux/slices/usersSlice";
 
-const skeletonValue = (
-  <span className="inline-flex h-7 w-20 animate-pulse rounded-full bg-slate-200" aria-hidden="true" />
-);
-
-const INITIAL_FILTERS = {
+const createInitialFilters = () => ({
   keyword: "",
   status: "ALL",
+  roles: [],
   fromDate: "",
   toDate: "",
-};
+});
 
 export default function Users() {
-    const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [filters, setFilters] = useState(createInitialFilters);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
-  const [sortBy, setSortBy] = useState("createdAt");
-  const [sortDirection, setSortDirection] = useState("DESC");
+  const [createdSort, setCreatedSort] = useState("DEFAULT");
   const dispatch = useDispatch();
   const { data, status, error } = useSelector((state) => state.users);
-  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
   const [dateError, setDateError] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
 
+  const { fromDate, toDate, keyword, status: statusFilter, roles } = filters;
+
   useEffect(() => {
-    if (filters.fromDate && filters.toDate) {
-      const from = new Date(filters.fromDate);
-      const to = new Date(filters.toDate);
+    if (fromDate && toDate) {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
       if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime()) && from > to) {
         setDateError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.");
         return;
       }
     }
     setDateError("");
-  }, [filters.fromDate, filters.toDate]);
+  }, [fromDate, toDate]);
+
+  const sortDirection = useMemo(() => {
+    if (createdSort === "ASC") {
+      return "ASC";
+    }
+    return "DESC";
+  }, [createdSort]);
 
   useEffect(() => {
     if (dateError) return undefined;
-    const params = buildQueryParams({ filters, page, size, sortBy, sortDirection });
+    const params = buildQueryParams({
+      filters: {
+        keyword,
+        status: statusFilter,
+        roles,
+        fromDate,
+        toDate,
+      },
+      page,
+      size,
+      sortBy: "createdAt",
+      sortDirection,
+    });
     const promise = dispatch(fetchUsers(params));
     return () => {
       promise.abort?.();
     };
-  }, [dispatch, filters.keyword, filters.status, filters.fromDate, filters.toDate, page, size, sortBy, sortDirection, dateError]);
-
-  useEffect(() => {
-    if (status === "succeeded" || status === "failed") {
-      setHasFetchedOnce(true);
-    }
-  }, [status]);
+  }, [dispatch, keyword, statusFilter, fromDate, toDate, roles, page, size, sortDirection, dateError]);
 
   useEffect(() => {
     if (status === "failed" && error) {
@@ -70,57 +80,17 @@ export default function Users() {
     };
   }, [dispatch]);
 
-  const users = data?.content ?? [];
+  const users = useMemo(() => data?.content ?? [], [data]);
   const totalPages = data?.totalPages ?? 0;
   const totalElements = data?.totalElements ?? 0;
 
   const loading = status === "loading";
-  const hasLoaded = hasFetchedOnce;
-
   const pageInfo = useMemo(() => {
     if (!totalElements) return { from: 0, to: 0 };
     const from = page * size + 1;
     const to = Math.min((page + 1) * size, totalElements);
     return { from, to };
   }, [page, size, totalElements]);
-
-  const statusOverview = useMemo(() => {
-    const counts = {};
-    users.forEach((user) => {
-      const key = user.status || "UNKNOWN";
-      counts[key] = (counts[key] || 0) + 1;
-    });
-    return counts;
-  }, [users]);
-
-  const summaryCards = [
-    {
-      key: "total",
-      title: "Tổng số người dùng",
-      value: totalElements,
-      hint: "Theo bộ lọc hiện tại",
-    },
-    {
-      key: "active",
-      title: "Đang hoạt động",
-      value: statusOverview.ACTIVE || 0,
-      hint: "Trong trang hiện tại",
-    },
-    {
-      key: "banned",
-      title: "Bị cấm",
-      value: statusOverview.BANNED || 0,
-      hint: "Trong trang hiện tại",
-    },
-    {
-      key: "pending",
-      title: "Đang xử lý xoá",
-      value: (statusOverview.PENDING_DELETE || 0) + (statusOverview.DELETED || 0),
-      hint: "Bao gồm đã xoá",
-    },
-  ];
-
-  const showSkeleton = loading && !hasLoaded;
 
   const handleUpdateFilters = (patch) => {
     setPage(0);
@@ -129,9 +99,8 @@ export default function Users() {
 
   const handleResetFilters = () => {
     setPage(0);
-    setFilters(INITIAL_FILTERS);
-    setSortBy("createdAt");
-    setSortDirection("DESC");
+    setFilters(createInitialFilters());
+    setCreatedSort("DEFAULT");
     setSize(20);
   };
 
@@ -163,32 +132,35 @@ export default function Users() {
     showToast("warning", "Tính năng xoá tài khoản đang được phát triển.");
   };
 
+  const handleToggleCreatedSort = () => {
+    setPage(0);
+    setCreatedSort((prev) => {
+      if (prev === "DEFAULT") return "ASC";
+      if (prev === "ASC") return "DESC";
+      return "DEFAULT";
+    });
+  };
+
   return (
     <PageShell
-      title="Quản lý người dùng"
-      description="Theo dõi và quản lý toàn bộ tài khoản trong hệ thống ZenRoom."
-      actions={(
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700 shadow-sm transition hover:bg-amber-50"
-          disabled
-        >
-          Xuất dữ liệu (sắp ra mắt)
-        </button>
-      )}
+      title=""
+      description=""
     >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((stat) => (
-          <div key={stat.key} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="text-sm font-medium text-slate-500">{stat.title}</div>
-            <div className="mt-2 text-3xl font-semibold text-slate-800">
-              {showSkeleton ? skeletonValue : formatNumber(stat.value)}
+      <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-amber-50 via-white to-white p-6 shadow-sm">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Bảng điều khiển người dùng</p>
+              <h1 className="text-3xl font-bold text-slate-800">Quản lý người dùng</h1>
             </div>
-            <div className="mt-3 text-xs text-slate-400">{stat.hint}</div>
-          </div>
-        ))}
-      </div>
 
+            <div className="grid auto-cols-max gap-1 text-right text-xs text-slate-500 md:text-sm">
+              <span>Tổng số bài đăng: <b className="text-slate-800">{totalElements}</b></span>
+              <span>Đang hiển thị: <b className="text-slate-800">{pageInfo.from}</b>–<b className="text-slate-800">{pageInfo.to}</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
       <PageSection
         title="Danh sách người dùng"
         description="Bảng dữ liệu hiển thị thông tin chi tiết, trạng thái hoạt động và phân quyền của từng tài khoản."
@@ -201,13 +173,6 @@ export default function Users() {
             >
               Thêm người dùng
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
-              disabled
-            >
-              Nhập CSV
-            </button>
           </div>
         )}
       >
@@ -215,16 +180,14 @@ export default function Users() {
           <UsersFilters
             keyword={filters.keyword}
             status={filters.status}
+            roles={filters.roles}
             fromDate={filters.fromDate}
             toDate={filters.toDate}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
             size={size}
             onKeywordChange={(value) => handleUpdateFilters({ keyword: value })}
             onStatusChange={(value) => handleUpdateFilters({ status: value })}
+            onRolesChange={(value) => handleUpdateFilters({ roles: value })}
             onDateChange={(field, value) => handleUpdateFilters({ [field]: value })}
-            onSortByChange={setSortBy}
-            onSortDirectionChange={setSortDirection}
             onSizeChange={handleSizeChange}
             onReset={handleResetFilters}
           />
@@ -245,12 +208,12 @@ export default function Users() {
             totalPages={totalPages}
             totalElements={totalElements}
             pageInfo={pageInfo}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
+            createdSort={createdSort}
             onPageFirst={() => setPage(0)}
             onPagePrev={() => setPage((prev) => Math.max(prev - 1, 0))}
             onPageNext={() => setPage((prev) => (prev + 1 >= totalPages ? prev : prev + 1))}
             onPageLast={() => setPage(totalPages > 0 ? totalPages - 1 : 0)}
+            onToggleCreatedSort={handleToggleCreatedSort}
             onView={handleView}
             onEdit={handleEdit}
             onBan={handleBan}
@@ -280,6 +243,7 @@ function buildQueryParams({ filters, page, size, sortBy, sortDirection }) {
 
   if (filters.keyword) params.keyword = filters.keyword;
   if (filters.status && filters.status !== "ALL") params.status = filters.status;
+  if (filters.roles?.length) params.roles = filters.roles.join(",");
   if (filters.fromDate) params.fromDate = normalizeDate(filters.fromDate, false);
   if (filters.toDate) params.toDate = normalizeDate(filters.toDate, true);
 
@@ -295,12 +259,4 @@ function normalizeDate(value, endOfRange) {
     return `${value}:${endOfRange ? "59" : "00"}`;
   }
   return value;
-}
-
-function formatNumber(value) {
-  try {
-    return new Intl.NumberFormat("vi-VN").format(value ?? 0);
-  } catch (error) {
-    return `${value ?? 0}`;
-  }
 }

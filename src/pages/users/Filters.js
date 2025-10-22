@@ -9,10 +9,10 @@ const STATUS_OPTIONS = [
   { value: "DELETED", label: "Đã xoá" },
 ];
 
-const SORT_OPTIONS = [
-  { value: "createdAt", label: "Ngày tạo" },
-  { value: "role", label: "Vai trò" },
-  { value: "status", label: "Trạng thái" },
+const ROLE_OPTIONS = [
+  { value: "ADMIN", label: "Quản trị viên" },
+  { value: "LANDLORD", label: "Chủ nhà" },
+  { value: "TENANT", label: "Người thuê" },
 ];
 
 const PAGE_SIZES = [10, 20, 50, 100];
@@ -20,16 +20,14 @@ const PAGE_SIZES = [10, 20, 50, 100];
 export default function UsersFilters({
   keyword,
   status,
+  roles = [],
   fromDate,
   toDate,
-  sortBy,
-  sortDirection,
   size,
   onKeywordChange,
   onStatusChange,
+  onRolesChange,
   onDateChange,
-  onSortByChange,
-  onSortDirectionChange,
   onSizeChange,
   onReset,
 }) {
@@ -47,6 +45,14 @@ export default function UsersFilters({
   const handleReset = () => {
     setLocalKeyword("");
     onReset();
+  };
+
+  const handleRoleToggle = (value) => {
+    if (!onRolesChange) return;
+    const nextRoles = roles.includes(value)
+      ? roles.filter((role) => role !== value)
+      : [...roles, value];
+    onRolesChange(nextRoles);
   };
 
   return (
@@ -88,31 +94,87 @@ export default function UsersFilters({
         </div>
       </form>
 
-      <div className="flex flex-wrap gap-2">
-        {STATUS_OPTIONS.map((option) => {
-          const active = status === option.value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onStatusChange(option.value)}
-              className={`rounded-full border px-4 py-1 text-sm font-medium transition ${
-                active
-                  ? "border-amber-300 bg-amber-100 text-amber-800 shadow-sm"
-                  : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50"
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Trạng thái</div>
+              <p className="mt-1 text-sm text-slate-500">Chọn trạng thái tài khoản cần hiển thị.</p>
+            </div>
+            {status !== "ALL" && (
+              <button
+                type="button"
+                onClick={() => onStatusChange("ALL")}
+                className="text-xs font-semibold text-amber-600 transition hover:text-amber-700"
+              >
+                Bỏ chọn
+              </button>
+            )}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((option) => {
+              const active = status === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onStatusChange(option.value)}
+                  className={`rounded-full border px-4 py-1 text-sm font-medium transition ${
+                    active
+                      ? "border-amber-300 bg-amber-100 text-amber-800 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-400">Vai trò</div>
+              <p className="mt-1 text-sm text-slate-500">Kết hợp nhiều vai trò để thu hẹp danh sách.</p>
+            </div>
+            {roles.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onRolesChange([])}
+                className="text-xs font-semibold text-amber-600 transition hover:text-amber-700"
+              >
+                Bỏ chọn
+              </button>
+            )}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ROLE_OPTIONS.map((option) => {
+              const active = roles.includes(option.value);
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleRoleToggle(option.value)}
+                  className={`rounded-full border px-4 py-1 text-sm font-medium transition ${
+                    active
+                      ? "border-amber-300 bg-amber-100 text-amber-800 shadow-sm"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-amber-200 hover:bg-amber-50"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
           Từ ngày
           <input
-            type="datetime-local"
+            type="date"
             value={fromDate || ""}
             onChange={(event) => onDateChange("fromDate", event.target.value)}
             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
@@ -122,38 +184,11 @@ export default function UsersFilters({
         <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
           Đến ngày
           <input
-            type="datetime-local"
+            type="date"
             value={toDate || ""}
             onChange={(event) => onDateChange("toDate", event.target.value)}
             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
           />
-        </label>
-
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Sắp xếp theo
-          <select
-            value={sortBy}
-            onChange={(event) => onSortByChange(event.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-          Thứ tự
-          <select
-            value={sortDirection}
-            onChange={(event) => onSortDirectionChange(event.target.value)}
-            className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-          >
-            <option value="DESC">Giảm dần</option>
-            <option value="ASC">Tăng dần</option>
-          </select>
         </label>
 
         <label className="flex flex-col gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400">

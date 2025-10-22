@@ -2,7 +2,7 @@ import StatusBadge from "../../components/StatusBadge";
 import { resolveAvatarUrl } from "../../utils/cdn";
 
 const STATUS_HINTS = {
-  ACTIVE: "Tài khoản đang hoạt động bình thường",
+  ACTIVE: "Tài khoản đang hoạt động",
   INACTIVE: "Tài khoản đã bị vô hiệu hoá",
   BANNED: "Người dùng không thể đăng nhập",
   DELETED: "Tài khoản đã bị xoá khỏi hệ thống",
@@ -17,12 +17,12 @@ export default function UsersTable({
   totalPages,
   totalElements,
   pageInfo,
-  sortBy,
-  sortDirection,
+  createdSort,
   onPageFirst,
   onPagePrev,
   onPageNext,
   onPageLast,
+  onToggleCreatedSort,
   onView,
   onEdit,
   onBan,
@@ -39,7 +39,16 @@ export default function UsersTable({
               <th className="px-4 py-3">Người dùng</th>
               <th className="px-4 py-3">Vai trò</th>
               <th className="px-4 py-3">Trạng thái</th>
-              <th className="px-4 py-3">Ngày tạo {renderSortIndicator(sortBy, sortDirection, "createdAt")}</th>
+              <th className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => onToggleCreatedSort?.()}
+                  className="inline-flex items-center gap-1 text-left font-semibold uppercase tracking-wide text-slate-500 transition hover:text-amber-600"
+                >
+                  <span>Ngày tạo</span>
+                  {renderCreatedSortIndicator(createdSort)}
+                </button>
+              </th>
               <th className="px-4 py-3">Đăng nhập cuối</th>
               <th className="px-4 py-3 text-right">Thao tác</th>
             </tr>
@@ -79,21 +88,15 @@ export default function UsersTable({
                         <div className="text-xs text-slate-500">
                           {user.email && <div>{user.email}</div>}
                           {user.phoneNumber && <div>{user.phoneNumber}</div>}
-                          <div className="text-[11px] uppercase tracking-wide text-slate-400">ID: {user.userId}</div>
                         </div>
                       </div>
                     </div>
                   </td>
 
                   <td className="px-4 py-4 align-top">
-                    <div className="flex flex-col gap-1 text-sm text-slate-600">
-                      <span className="inline-flex w-fit rounded-full border border-slate-200 px-3 py-[2px] text-xs font-medium uppercase tracking-wide text-slate-500">
-                        {user.roleName || "Không rõ"}
-                      </span>
-                      {user.roleId && (
-                        <span className="text-[11px] uppercase tracking-wide text-slate-400">{user.roleId}</span>
-                      )}
-                    </div>
+                    <span className="inline-flex w-fit rounded-full border border-slate-200 px-3 py-[2px] text-xs font-medium uppercase tracking-wide text-slate-500">
+                      {user.roleName || "Không rõ"}
+                    </span>
                   </td>
 
                   <td className="px-4 py-4 align-top">
@@ -232,19 +235,40 @@ function formatDateTime(value) {
   });
 }
 
-function renderSortIndicator(sortBy, sortDirection, column) {
-  if (sortBy !== column) return null;
+function renderCreatedSortIndicator(state) {
+  if (state === "ASC") {
+    return (
+      <span className="inline-flex items-center text-amber-600">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+          <path
+            fillRule="evenodd"
+            d="M5.22 12.78a.75.75 0 001.06 0L10 9.06l3.72 3.72a.75.75 0 101.06-1.06l-4.25-4.25a.75.75 0 00-1.06 0L5.22 11.72a.75.75 0 000 1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </span>
+    );
+  }
+
+  if (state === "DESC") {
+    return (
+      <span className="inline-flex items-center text-amber-600">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+          <path
+            fillRule="evenodd"
+            d="M14.78 7.22a.75.75 0 00-1.06 0L10 10.94 6.28 7.22a.75.75 0 10-1.06 1.06l4.25 4.25a.75.75 0 001.06 0l4.25-4.25a.75.75 0 000-1.06z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </span>
+    );
+  }
+
   return (
-    <span className="ml-1 inline-flex items-center text-amber-600">
-      {sortDirection === "ASC" ? (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-          <path fillRule="evenodd" d="M5.22 12.78a.75.75 0 001.06 0L10 9.06l3.72 3.72a.75.75 0 101.06-1.06l-4.25-4.25a.75.75 0 00-1.06 0L5.22 11.72a.75.75 0 000 1.06z" clipRule="evenodd" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-          <path fillRule="evenodd" d="M14.78 7.22a.75.75 0 00-1.06 0L10 10.94 6.28 7.22a.75.75 0 10-1.06 1.06l4.25 4.25a.75.75 0 001.06 0l4.25-4.25a.75.75 0 000-1.06z" clipRule="evenodd" />
-        </svg>
-      )}
+    <span className="inline-flex items-center text-slate-400">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+        <path d="M7 5a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 017 5zm0 4a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 017 9zm0 4a.75.75 0 01.75-.75h4.5a.75.75 0 010 1.5h-4.5A.75.75 0 017 13z" />
+      </svg>
     </span>
   );
 }
