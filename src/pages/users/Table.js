@@ -101,7 +101,7 @@ export default function UsersTable({
                   <td className="px-4 py-4 align-top">
                     <div className="flex flex-col gap-1 text-sm text-slate-600">
                       <StatusBadge status={user.status} />
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs text-slate-500 text-center">
                         {user.banReason && user.status === "BANNED"
                           ? user.banReason
                           : STATUS_HINTS[user.status] || "—"}

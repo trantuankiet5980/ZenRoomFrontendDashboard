@@ -29,7 +29,7 @@ export default function StatusBadge({ status }) {
   const label = labelMap[status] || status || "Không rõ";
   
   return (
-    <span className={`inline-flex items-center rounded-full border px-2 py-[2px] text-xs font-medium ${cls}`}>
+    <span className={`inline-flex items-center justify-center rounded-full border px-2 py-[2px] text-xs font-medium ${cls}`}>
       {label}
     </span>
   );
