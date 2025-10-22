@@ -44,6 +44,20 @@ export default function Users() {
     return detailUser.fullName || detailUser.email || detailUser.phoneNumber || "người dùng";
   }, [detailUser]);
 
+  const detailStatus = detailUser?.status;
+  const isDetailBanned = detailStatus === "BANNED";
+  const isDetailDeleted = detailStatus === "DELETED";
+  const banModalTitle = isDetailBanned ? "Xác nhận hủy cấm người dùng" : "Xác nhận cấm người dùng";
+  const banModalDescription = isDetailBanned
+    ? `Bạn có chắc chắn muốn hủy cấm ${selectedUserName}? Tài khoản sẽ hoạt động trở lại sau khi hủy cấm.`
+    : `Bạn có chắc chắn muốn cấm ${selectedUserName}? Người dùng sẽ không thể đăng nhập sau khi bị cấm.`;
+  const banModalConfirmText = isDetailBanned ? "Hủy cấm" : "Cấm người dùng";
+  const deleteModalTitle = isDetailDeleted ? "Xác nhận khôi phục tài khoản" : "Xác nhận xoá tài khoản";
+  const deleteModalDescription = isDetailDeleted
+    ? `Bạn có chắc chắn muốn khôi phục tài khoản của ${selectedUserName}? Tài khoản sẽ được mở lại ngay sau khi khôi phục.`
+    : `Bạn có chắc chắn muốn xoá tài khoản của ${selectedUserName}? Hành động này không thể hoàn tác.`;
+  const deleteModalConfirmText = isDetailDeleted ? "Khôi phục tài khoản" : "Xoá tài khoản";
+
   const { fromDate, toDate, keyword, status: statusFilter, roles } = filters;
 
   useEffect(() => {
@@ -152,7 +166,7 @@ export default function Users() {
   };
 
   const handleBan = (user) => {
-    if (!user) return;
+    if (!user || user.status === "DELETED") return;
     setDetailUserId(user.userId);
     setDetailUser(user);
     setBanModalOpen(true);
@@ -233,17 +247,30 @@ export default function Users() {
 
   const handleConfirmBan = async () => {
     if (!detailUserId) return;
+    const isCurrentlyBanned = isDetailBanned;
     setActionLoading(true);
     try {
+      const targetStatus = isCurrentlyBanned ? "ACTIVE" : "BANNED";
       const updated = await dispatch(
-        updateUserById({ userId: detailUserId, data: { status: "BANNED" } })
+        updateUserById({ userId: detailUserId, data: { status: targetStatus } })
       ).unwrap();
-      setDetailUser((prev) => ({ ...(prev || {}), status: "BANNED", ...(updated || {}) }));
-      showToast("success", "Đã cấm người dùng thành công.");
+      setDetailUser((prev) => ({
+        ...(prev || {}),
+        status: targetStatus,
+        ...(targetStatus === "ACTIVE" ? { banReason: null } : {}),
+        ...(updated || {}),
+      }));
+      showToast(
+        "success",
+        targetStatus === "BANNED" ? "Đã cấm người dùng thành công." : "Đã hủy cấm người dùng thành công."
+      );
       refreshUsers();
       setBanModalOpen(false);
     } catch (error) {
-      showToast("error", error || "Không thể cấm người dùng.");
+      const fallbackMessage = isCurrentlyBanned
+        ? "Không thể hủy cấm người dùng."
+        : "Không thể cấm người dùng.";
+      showToast("error", error || fallbackMessage);
     } finally {
       setActionLoading(false);
     }
@@ -251,17 +278,29 @@ export default function Users() {
 
   const handleConfirmDelete = async () => {
     if (!detailUserId) return;
+    const isCurrentlyDeleted = isDetailDeleted;
     setActionLoading(true);
     try {
+      const targetStatus = isCurrentlyDeleted ? "ACTIVE" : "DELETED";
       const updated = await dispatch(
-        updateUserById({ userId: detailUserId, data: { status: "DELETED" } })
+        updateUserById({ userId: detailUserId, data: { status: targetStatus } })
       ).unwrap();
-      setDetailUser((prev) => ({ ...(prev || {}), status: "DELETED", ...(updated || {}) }));
-      showToast("success", "Đã xoá tài khoản người dùng.");
+      setDetailUser((prev) => ({
+        ...(prev || {}),
+        status: targetStatus,
+        ...(updated || {}),
+      }));
+      showToast(
+        "success",
+        targetStatus === "DELETED" ? "Đã xoá tài khoản người dùng." : "Đã khôi phục tài khoản người dùng."
+      );
       refreshUsers();
       setDeleteModalOpen(false);
     } catch (error) {
-      showToast("error", error || "Không thể xoá tài khoản người dùng.");
+      const fallbackMessage = isCurrentlyDeleted
+        ? "Không thể khôi phục tài khoản người dùng."
+        : "Không thể xoá tài khoản người dùng.";
+      showToast("error", error || fallbackMessage);
     } finally {
       setActionLoading(false);
     }
@@ -363,9 +402,9 @@ export default function Users() {
 
       <ConfirmModal
         open={banModalOpen}
-        title="Xác nhận cấm người dùng"
-        description={`Bạn có chắc chắn muốn cấm ${selectedUserName}? Người dùng sẽ không thể đăng nhập sau khi bị cấm.`}
-        confirmText="Cấm người dùng"
+        title={banModalTitle}
+        description={banModalDescription}
+        confirmText={banModalConfirmText}
         loading={actionLoading}
         onCancel={() => {
           setBanModalOpen(false);
@@ -376,9 +415,9 @@ export default function Users() {
 
       <ConfirmModal
         open={deleteModalOpen}
-        title="Xác nhận xoá tài khoản"
-        description={`Bạn có chắc chắn muốn xoá tài khoản của ${selectedUserName}? Hành động này không thể hoàn tác.`}
-        confirmText="Xoá tài khoản"
+        title={deleteModalTitle}
+        description={deleteModalDescription}
+        confirmText={deleteModalConfirmText}
         loading={actionLoading}
         onCancel={() => {
           setDeleteModalOpen(false);
