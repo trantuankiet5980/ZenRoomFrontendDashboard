@@ -46,6 +46,12 @@ const usersSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchUsers.rejected, (state, action) => {
+        if (action.error?.name === "AbortError") {
+          state.status = "idle";
+          state.error = null;
+          return;
+        }
+        
         state.status = "failed";
         state.error = action.payload || action.error?.message || "Không thể tải danh sách người dùng.";
       });

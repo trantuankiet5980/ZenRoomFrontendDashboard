@@ -152,6 +152,9 @@ export default function Users() {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Bảng điều khiển người dùng</p>
               <h1 className="text-3xl font-bold text-slate-800">Quản lý người dùng</h1>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                Theo dõi trạng thái người dùng, tìm kiếm tên/số điện thoại/email và quản lý người dùng một cách trực quan.
+              </p>
             </div>
 
             <div className="grid auto-cols-max gap-1 text-right text-xs text-slate-500 md:text-sm">
@@ -244,19 +247,36 @@ function buildQueryParams({ filters, page, size, sortBy, sortDirection }) {
   if (filters.keyword) params.keyword = filters.keyword;
   if (filters.status && filters.status !== "ALL") params.status = filters.status;
   if (filters.roles?.length) params.roles = filters.roles.join(",");
-  if (filters.fromDate) params.fromDate = normalizeDate(filters.fromDate, false);
-  if (filters.toDate) params.toDate = normalizeDate(filters.toDate, true);
+  if (filters.fromDate) params.fromDate = normalizeDate(filters.fromDate);
+  if (filters.toDate) params.toDate = normalizeDate(filters.toDate);
 
   return params;
 }
 
-function normalizeDate(value, endOfRange) {
+function normalizeDate(value) {
   if (!value) return value;
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return `${value}T${endOfRange ? "23:59:59" : "00:00:00"}`;
+  if (typeof value === "string") {
+    const [datePart] = value.split("T");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatAsDate(parsed);
+    }
+
+    return value;
   }
-  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-    return `${value}:${endOfRange ? "59" : "00"}`;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatAsDate(value);
   }
   return value;
+}
+
+function formatAsDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
