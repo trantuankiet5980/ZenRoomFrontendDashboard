@@ -6,7 +6,7 @@ import Users from "./pages/Users";
 import Properties from "./pages/properties/Properties";
 import Bookings from "./pages/Bookings";
 // import Contracts from "./pages/Contracts";
-import Payments from "./pages/Payments";
+// import Payments from "./pages/Payments";
 import Invoices from "./pages/Invoices";
 import DiscountCodes from "./pages/DiscountCodes";
 import Reviews from "./pages/Reviews";
@@ -34,7 +34,7 @@ const routes = [
           { path: "properties", element: <Properties /> },
           { path: "bookings", element: <Bookings /> },
           // { path: "contracts", element: <Contracts /> },
-          { path: "payments", element: <Payments /> },
+          // { path: "payments", element: <Payments /> },
           { path: "invoices", element: <Invoices /> },
           { path: "discount-codes", element: <DiscountCodes /> },
           { path: "reviews", element: <Reviews /> },

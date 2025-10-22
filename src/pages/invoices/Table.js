@@ -1,14 +1,6 @@
 import { getInvoiceStatusMeta } from "./constants";
 import { formatCurrency, formatDate, formatDateTime } from "../../utils/format";
 
-const PAYMENT_METHOD_LABELS = {
-  CASH: "Tiền mặt",
-  BANK_TRANSFER: "Chuyển khoản",
-  PAYOS: "PayOS",
-  MOMO: "MoMo",
-  VNPAY: "VNPay",
-};
-
 export default function InvoiceTable({
   invoices = [],
   loading,
@@ -53,7 +45,6 @@ export default function InvoiceTable({
               const statusMeta = getInvoiceStatusMeta(invoice.status);
               const canRefund = invoice.status === "REFUND_PENDING";
               const isRefunding = actionLoadingId === invoice.invoiceId;
-              const paymentMethod = PAYMENT_METHOD_LABELS[invoice.paymentMethod] || invoice.paymentMethod || "—";
               const booking = invoice.booking || {};
               const property = booking.property || {};
 
@@ -197,11 +188,4 @@ export default function InvoiceTable({
       </div>
     </div>
   );
-}
-
-function truncateId(value) {
-  if (!value) return "—";
-  const str = String(value);
-  if (str.length <= 8) return str;
-  return `${str.slice(0, 4)}…${str.slice(-4)}`;
 }

@@ -47,7 +47,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         <Item to="/bookings" label="Bookings" labelCls={labelCls} onNavigate={onNavigate} />
         {/* <Item to="/contracts" label="Contracts" labelCls={labelCls} onNavigate={onNavigate} /> */}
         <Item to="/invoices" label="Invoices" labelCls={labelCls} onNavigate={onNavigate} />
-        <Item to="/payments" label="Payments" labelCls={labelCls} onNavigate={onNavigate} />
+        {/* <Item to="/payments" label="Payments" labelCls={labelCls} onNavigate={onNavigate} /> */}
       </Section>
 
       {/* Tương tác & Nội dung */}
