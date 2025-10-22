@@ -24,7 +24,6 @@ export default function UsersTable({
   onPageLast,
   onToggleCreatedSort,
   onView,
-  onEdit,
   onBan,
   onDelete,
 }) {
@@ -135,14 +134,7 @@ export default function UsersTable({
                         onClick={() => onView?.(user)}
                         className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-amber-300 hover:bg-amber-50/60"
                       >
-                        Xem
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onEdit?.(user)}
-                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-amber-300 hover:bg-amber-50/60"
-                      >
-                        Cập nhật
+                        Xem &amp; cập nhật
                       </button>
                       <button
                         type="button"

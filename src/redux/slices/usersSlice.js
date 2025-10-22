@@ -8,8 +8,31 @@ export const fetchUsers = createAsyncThunk(
       const response = await axiosInstance.get("/v1/users", { params });
       return response.data;
     } catch (error) {
-      const message = error?.response?.data?.message;
-      return rejectWithValue(message || "Không thể tải danh sách người dùng.");
+      return rejectWithValue(resolveErrorMessage(error, "Không thể tải danh sách người dùng."));
+    }
+  }
+);
+
+export const fetchUserById = createAsyncThunk(
+  "users/fetchUserById",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/v1/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(resolveErrorMessage(error, "Không thể tải thông tin người dùng."));
+    }
+  }
+);
+
+export const updateUserById = createAsyncThunk(
+  "users/updateUserById",
+  async ({ userId, data }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(`/v1/users/${userId}`, data);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(resolveErrorMessage(error, "Không thể cập nhật thông tin người dùng."));
     }
   }
 );
@@ -51,7 +74,7 @@ const usersSlice = createSlice({
           state.error = null;
           return;
         }
-        
+
         state.status = "failed";
         state.error = action.payload || action.error?.message || "Không thể tải danh sách người dùng.";
       });
@@ -60,3 +83,7 @@ const usersSlice = createSlice({
 
 export const { clearUsersError } = usersSlice.actions;
 export default usersSlice.reducer;
+
+function resolveErrorMessage(error, fallback) {
+  return error?.response?.data?.message || fallback;
+}
