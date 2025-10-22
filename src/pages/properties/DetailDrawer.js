@@ -15,7 +15,7 @@ export default function DetailDrawer({ open, onClose, loading, data }) {
           <div>
             <h3 className="text-lg font-semibold text-slate-800">Chi tiết bài đăng</h3>
             {data?.propertyId && (
-              <p className="text-xs text-slate-400">Mã tài sản: {data.propertyId}</p>
+              <p className="text-xs text-slate-400">Mã: {data.propertyId}</p>
             )}
           </div>
           <button
