@@ -1,6 +1,6 @@
 export default function PageShell({ title, description, actions, children, className = "" }) {
   return (
-    <div className={`p-6 space-y-6 ${className}`}>
+    <div className={`space-y-6 ${className}`}>
       {(title || description || actions) && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

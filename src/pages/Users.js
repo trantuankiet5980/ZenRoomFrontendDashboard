@@ -1,41 +1,169 @@
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
-import EmptyState from "../components/EmptyState";
+import UsersFilters from "./users/Filters";
+import UsersTable from "./users/Table";
+import UserDetailDrawer from "./users/DetailDrawer";
+import { showToast } from "../utils/toast";
+import { clearUsersError, fetchUsers } from "../redux/slices/usersSlice";
 
-const skeletonValue = <span className="inline-flex h-7 w-20 animate-pulse rounded-full bg-slate-200" aria-hidden="true" />;
-
-const stats = [
-  { key: "total", title: "Tổng số người dùng", hint: "Bao gồm cả chủ nhà và khách thuê" },
-  { key: "landlords", title: "Chủ nhà hoạt động", hint: "Đang có bài đăng hiển thị" },
-  { key: "tenants", title: "Khách thuê hoạt động", hint: "Có lượt truy cập gần đây" },
-  { key: "new", title: "Người dùng mới", hint: "Trong 30 ngày qua" },
-];
+const createInitialFilters = () => ({
+  keyword: "",
+  status: "ALL",
+  roles: [],
+  fromDate: "",
+  toDate: "",
+});
 
 export default function Users() {
-    return (
-    <PageShell
-      title="Quản lý người dùng"
-      description="Theo dõi và quản lý toàn bộ tài khoản trong hệ thống ZenRoom."
-      actions={(
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-white px-4 py-2 text-sm font-medium text-amber-700 shadow-sm transition hover:bg-amber-50"
-          disabled
-        >
-          Xuất dữ liệu (sắp ra mắt)
-        </button>
-      )}
-    >
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {stats.map((stat) => (
-          <div key={stat.key} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <div className="text-sm font-medium text-slate-500">{stat.title}</div>
-            <div className="mt-2 text-3xl font-semibold text-slate-800">{skeletonValue}</div>
-            <div className="mt-3 text-xs text-slate-400">{stat.hint}</div>
-          </div>
-        ))}
-      </div>
+  const [filters, setFilters] = useState(createInitialFilters);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const [createdSort, setCreatedSort] = useState("DEFAULT");
+  const dispatch = useDispatch();
+  const { data, status, error } = useSelector((state) => state.users);
+  const [dateError, setDateError] = useState("");
+  const [selectedUser, setSelectedUser] = useState(null);
 
+  const { fromDate, toDate, keyword, status: statusFilter, roles } = filters;
+
+  useEffect(() => {
+    if (fromDate && toDate) {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
+      if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime()) && from > to) {
+        setDateError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.");
+        return;
+      }
+    }
+    setDateError("");
+  }, [fromDate, toDate]);
+
+  const sortDirection = useMemo(() => {
+    if (createdSort === "ASC") {
+      return "ASC";
+    }
+    return "DESC";
+  }, [createdSort]);
+
+  useEffect(() => {
+    if (dateError) return undefined;
+    const params = buildQueryParams({
+      filters: {
+        keyword,
+        status: statusFilter,
+        roles,
+        fromDate,
+        toDate,
+      },
+      page,
+      size,
+      sortBy: "createdAt",
+      sortDirection,
+    });
+    const promise = dispatch(fetchUsers(params));
+    return () => {
+      promise.abort?.();
+    };
+  }, [dispatch, keyword, statusFilter, fromDate, toDate, roles, page, size, sortDirection, dateError]);
+
+  useEffect(() => {
+    if (status === "failed" && error) {
+      showToast("error", error);
+    }
+  }, [status, error]);
+
+  useEffect(() => {
+    return () => {
+      dispatch(clearUsersError());
+    };
+  }, [dispatch]);
+
+  const users = useMemo(() => data?.content ?? [], [data]);
+  const totalPages = data?.totalPages ?? 0;
+  const totalElements = data?.totalElements ?? 0;
+
+  const loading = status === "loading";
+  const pageInfo = useMemo(() => {
+    if (!totalElements) return { from: 0, to: 0 };
+    const from = page * size + 1;
+    const to = Math.min((page + 1) * size, totalElements);
+    return { from, to };
+  }, [page, size, totalElements]);
+
+  const handleUpdateFilters = (patch) => {
+    setPage(0);
+    setFilters((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleResetFilters = () => {
+    setPage(0);
+    setFilters(createInitialFilters());
+    setCreatedSort("DEFAULT");
+    setSize(20);
+  };
+
+  const handleSizeChange = (value) => {
+    setPage(0);
+    setSize(value);
+  };
+
+  const handleView = (user) => {
+    setSelectedUser(user);
+  };
+
+  const handleEdit = (user) => {
+    setSelectedUser(user);
+    showToast("info", "Chức năng cập nhật người dùng sẽ sớm ra mắt.");
+  };
+
+  const handleBan = (user) => {
+    const name = user.fullName || user.email || "người dùng";
+    const confirmed = window.confirm(`Bạn có chắc muốn cấm ${name}?`);
+    if (!confirmed) return;
+    showToast("warning", "Tính năng cấm người dùng đang được phát triển.");
+  };
+
+  const handleDelete = (user) => {
+    const name = user.fullName || user.email || "người dùng";
+    const confirmed = window.confirm(`Bạn có chắc muốn xoá ${name}?`);
+    if (!confirmed) return;
+    showToast("warning", "Tính năng xoá tài khoản đang được phát triển.");
+  };
+
+  const handleToggleCreatedSort = () => {
+    setPage(0);
+    setCreatedSort((prev) => {
+      if (prev === "DEFAULT") return "ASC";
+      if (prev === "ASC") return "DESC";
+      return "DEFAULT";
+    });
+  };
+
+  return (
+    <PageShell
+      title=""
+      description=""
+    >
+      <div className="rounded-2xl border border-slate-100 bg-gradient-to-br from-amber-50 via-white to-white p-6 shadow-sm">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-wide text-amber-600">Bảng điều khiển người dùng</p>
+              <h1 className="text-3xl font-bold text-slate-800">Quản lý người dùng</h1>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                Theo dõi trạng thái người dùng, tìm kiếm tên/số điện thoại/email và quản lý người dùng một cách trực quan.
+              </p>
+            </div>
+
+            <div className="grid auto-cols-max gap-1 text-right text-xs text-slate-500 md:text-sm">
+              <span>Tổng số bài đăng: <b className="text-slate-800">{totalElements}</b></span>
+              <span>Đang hiển thị: <b className="text-slate-800">{pageInfo.from}</b>–<b className="text-slate-800">{pageInfo.to}</b></span>
+            </div>
+          </div>
+        </div>
+      </div>
       <PageSection
         title="Danh sách người dùng"
         description="Bảng dữ liệu hiển thị thông tin chi tiết, trạng thái hoạt động và phân quyền của từng tài khoản."
@@ -48,21 +176,107 @@ export default function Users() {
             >
               Thêm người dùng
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
-              disabled
-            >
-              Nhập CSV
-            </button>
           </div>
         )}
       >
-        <EmptyState
-          title="Bảng người dùng đang được hoàn thiện"
-          description="Chúng tôi đang phát triển giao diện bảng để hiển thị, lọc và phân quyền người dùng. Vui lòng quay lại sau khi bản cập nhật mới được phát hành."
-        />
+        <div className="space-y-6">
+          <UsersFilters
+            keyword={filters.keyword}
+            status={filters.status}
+            roles={filters.roles}
+            fromDate={filters.fromDate}
+            toDate={filters.toDate}
+            size={size}
+            onKeywordChange={(value) => handleUpdateFilters({ keyword: value })}
+            onStatusChange={(value) => handleUpdateFilters({ status: value })}
+            onRolesChange={(value) => handleUpdateFilters({ roles: value })}
+            onDateChange={(field, value) => handleUpdateFilters({ [field]: value })}
+            onSizeChange={handleSizeChange}
+            onReset={handleResetFilters}
+          />
+
+          {dateError && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{dateError}</div>
+          )}
+
+          {status === "failed" && error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600">{error}</div>
+          )}
+
+          <UsersTable
+            users={users}
+            loading={loading}
+            page={page}
+            size={size}
+            totalPages={totalPages}
+            totalElements={totalElements}
+            pageInfo={pageInfo}
+            createdSort={createdSort}
+            onPageFirst={() => setPage(0)}
+            onPagePrev={() => setPage((prev) => Math.max(prev - 1, 0))}
+            onPageNext={() => setPage((prev) => (prev + 1 >= totalPages ? prev : prev + 1))}
+            onPageLast={() => setPage(totalPages > 0 ? totalPages - 1 : 0)}
+            onToggleCreatedSort={handleToggleCreatedSort}
+            onView={handleView}
+            onEdit={handleEdit}
+            onBan={handleBan}
+            onDelete={handleDelete}
+          />
+        </div>
       </PageSection>
+
+      <UserDetailDrawer
+        user={selectedUser}
+        onClose={() => setSelectedUser(null)}
+        onEdit={handleEdit}
+        onBan={handleBan}
+        onDelete={handleDelete}
+      />
     </PageShell>
   );
+}
+
+function buildQueryParams({ filters, page, size, sortBy, sortDirection }) {
+  const params = {
+    page,
+    size,
+    sortBy,
+    sortDirection,
+  };
+
+  if (filters.keyword) params.keyword = filters.keyword;
+  if (filters.status && filters.status !== "ALL") params.status = filters.status;
+  if (filters.roles?.length) params.roles = filters.roles.join(",");
+  if (filters.fromDate) params.fromDate = normalizeDate(filters.fromDate);
+  if (filters.toDate) params.toDate = normalizeDate(filters.toDate);
+
+  return params;
+}
+
+function normalizeDate(value) {
+  if (!value) return value;
+  if (typeof value === "string") {
+    const [datePart] = value.split("T");
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return formatAsDate(parsed);
+    }
+
+    return value;
+  }
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return formatAsDate(value);
+  }
+  return value;
+}
+
+function formatAsDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
