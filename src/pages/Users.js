@@ -1,12 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
 import UsersFilters from "./users/Filters";
 import UsersTable from "./users/Table";
 import UserDetailDrawer from "./users/DetailDrawer";
+import ConfirmModal from "./users/ConfirmModal";
 import { showToast } from "../utils/toast";
-import { clearUsersError, fetchUsers } from "../redux/slices/usersSlice";
+import {
+  clearUsersError,
+  fetchUsers,
+  fetchUserById,
+  updateUserById,
+} from "../redux/slices/usersSlice";
 
 const createInitialFilters = () => ({
   keyword: "",
@@ -24,7 +30,19 @@ export default function Users() {
   const dispatch = useDispatch();
   const { data, status, error } = useSelector((state) => state.users);
   const [dateError, setDateError] = useState("");
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailUserId, setDetailUserId] = useState("");
+  const [detailUser, setDetailUser] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailSaving, setDetailSaving] = useState(false);
+  const [banModalOpen, setBanModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const selectedUserName = useMemo(() => {
+    if (!detailUser) return "người dùng";
+    return detailUser.fullName || detailUser.email || detailUser.phoneNumber || "người dùng";
+  }, [detailUser]);
 
   const { fromDate, toDate, keyword, status: statusFilter, roles } = filters;
 
@@ -92,6 +110,23 @@ export default function Users() {
     return { from, to };
   }, [page, size, totalElements]);
 
+  const refreshUsers = useCallback(() => {
+    const params = buildQueryParams({
+      filters: {
+        keyword,
+        status: statusFilter,
+        roles,
+        fromDate,
+        toDate,
+      },
+      page,
+      size,
+      sortBy: "createdAt",
+      sortDirection,
+    });
+    dispatch(fetchUsers(params));
+  }, [dispatch, keyword, statusFilter, roles, fromDate, toDate, page, size, sortDirection]);
+
   const handleUpdateFilters = (patch) => {
     setPage(0);
     setFilters((prev) => ({ ...prev, ...patch }));
@@ -110,26 +145,24 @@ export default function Users() {
   };
 
   const handleView = (user) => {
-    setSelectedUser(user);
-  };
-
-  const handleEdit = (user) => {
-    setSelectedUser(user);
-    showToast("info", "Chức năng cập nhật người dùng sẽ sớm ra mắt.");
+    if (!user) return;
+    setDetailUserId(user.userId);
+    setDetailUser(user);
+    setDetailOpen(true);
   };
 
   const handleBan = (user) => {
-    const name = user.fullName || user.email || "người dùng";
-    const confirmed = window.confirm(`Bạn có chắc muốn cấm ${name}?`);
-    if (!confirmed) return;
-    showToast("warning", "Tính năng cấm người dùng đang được phát triển.");
+    if (!user) return;
+    setDetailUserId(user.userId);
+    setDetailUser(user);
+    setBanModalOpen(true);
   };
 
   const handleDelete = (user) => {
-    const name = user.fullName || user.email || "người dùng";
-    const confirmed = window.confirm(`Bạn có chắc muốn xoá ${name}?`);
-    if (!confirmed) return;
-    showToast("warning", "Tính năng xoá tài khoản đang được phát triển.");
+    if (!user) return;
+    setDetailUserId(user.userId);
+    setDetailUser(user);
+    setDeleteModalOpen(true);
   };
 
   const handleToggleCreatedSort = () => {
@@ -139,6 +172,99 @@ export default function Users() {
       if (prev === "ASC") return "DESC";
       return "DEFAULT";
     });
+  };
+
+  const handleCloseDetail = () => {
+    setDetailOpen(false);
+    setDetailUserId("");
+    setDetailUser(null);
+    setDetailLoading(false);
+    setDetailSaving(false);
+    setBanModalOpen(false);
+    setDeleteModalOpen(false);
+    setActionLoading(false);
+  };
+
+  useEffect(() => {
+    if (!detailOpen || !detailUserId) return undefined;
+    let ignore = false;
+
+    const fetchDetail = async () => {
+      setDetailLoading(true);
+      try {
+        const data = await dispatch(fetchUserById(detailUserId)).unwrap();
+        if (!ignore) {
+          setDetailUser(data);
+        }
+      } catch (error) {
+        if (!ignore) {
+          showToast("error", error || "Không thể tải thông tin người dùng.");
+        }
+      } finally {
+        if (!ignore) {
+          setDetailLoading(false);
+        }
+      }
+    };
+
+    fetchDetail();
+
+    return () => {
+      ignore = true;
+    };
+  }, [detailOpen, detailUserId, dispatch]);
+
+  const handleSubmitDetail = async (values) => {
+    if (!detailUserId) return;
+    setDetailSaving(true);
+    try {
+      const payload = buildUpdatePayload(values);
+      const updated = await dispatch(updateUserById({ userId: detailUserId, data: payload })).unwrap();
+      const fallback = mapFormValuesToUser(values);
+      setDetailUser((prev) => ({ ...(prev || {}), ...fallback, ...(updated || {}) }));
+      showToast("success", "Cập nhật thông tin người dùng thành công.");
+      refreshUsers();
+    } catch (error) {
+      showToast("error", error || "Không thể cập nhật thông tin người dùng.");
+    } finally {
+      setDetailSaving(false);
+    }
+  };
+
+  const handleConfirmBan = async () => {
+    if (!detailUserId) return;
+    setActionLoading(true);
+    try {
+      const updated = await dispatch(
+        updateUserById({ userId: detailUserId, data: { status: "BANNED" } })
+      ).unwrap();
+      setDetailUser((prev) => ({ ...(prev || {}), status: "BANNED", ...(updated || {}) }));
+      showToast("success", "Đã cấm người dùng thành công.");
+      refreshUsers();
+      setBanModalOpen(false);
+    } catch (error) {
+      showToast("error", error || "Không thể cấm người dùng.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!detailUserId) return;
+    setActionLoading(true);
+    try {
+      const updated = await dispatch(
+        updateUserById({ userId: detailUserId, data: { status: "DELETED" } })
+      ).unwrap();
+      setDetailUser((prev) => ({ ...(prev || {}), status: "DELETED", ...(updated || {}) }));
+      showToast("success", "Đã xoá tài khoản người dùng.");
+      refreshUsers();
+      setDeleteModalOpen(false);
+    } catch (error) {
+      showToast("error", error || "Không thể xoá tài khoản người dùng.");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -158,7 +284,7 @@ export default function Users() {
             </div>
 
             <div className="grid auto-cols-max gap-1 text-right text-xs text-slate-500 md:text-sm">
-              <span>Tổng số bài đăng: <b className="text-slate-800">{totalElements}</b></span>
+              <span>Tổng số người dùng: <b className="text-slate-800">{totalElements}</b></span>
               <span>Đang hiển thị: <b className="text-slate-800">{pageInfo.from}</b>–<b className="text-slate-800">{pageInfo.to}</b></span>
             </div>
           </div>
@@ -218,7 +344,6 @@ export default function Users() {
             onPageLast={() => setPage(totalPages > 0 ? totalPages - 1 : 0)}
             onToggleCreatedSort={handleToggleCreatedSort}
             onView={handleView}
-            onEdit={handleEdit}
             onBan={handleBan}
             onDelete={handleDelete}
           />
@@ -226,14 +351,76 @@ export default function Users() {
       </PageSection>
 
       <UserDetailDrawer
-        user={selectedUser}
-        onClose={() => setSelectedUser(null)}
-        onEdit={handleEdit}
-        onBan={handleBan}
-        onDelete={handleDelete}
+        open={detailOpen}
+        user={detailUser}
+        loading={detailLoading}
+        saving={detailSaving}
+        onClose={handleCloseDetail}
+        onSubmit={handleSubmitDetail}
+        onBan={() => handleBan(detailUser)}
+        onDelete={() => handleDelete(detailUser)}
+      />
+
+      <ConfirmModal
+        open={banModalOpen}
+        title="Xác nhận cấm người dùng"
+        description={`Bạn có chắc chắn muốn cấm ${selectedUserName}? Người dùng sẽ không thể đăng nhập sau khi bị cấm.`}
+        confirmText="Cấm người dùng"
+        loading={actionLoading}
+        onCancel={() => {
+          setBanModalOpen(false);
+          setActionLoading(false);
+        }}
+        onConfirm={handleConfirmBan}
+      />
+
+      <ConfirmModal
+        open={deleteModalOpen}
+        title="Xác nhận xoá tài khoản"
+        description={`Bạn có chắc chắn muốn xoá tài khoản của ${selectedUserName}? Hành động này không thể hoàn tác.`}
+        confirmText="Xoá tài khoản"
+        loading={actionLoading}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setActionLoading(false);
+        }}
+        onConfirm={handleConfirmDelete}
       />
     </PageShell>
   );
+}
+
+function buildUpdatePayload(values = {}) {
+  const payload = {};
+  if ("fullName" in values) payload.fullName = normalizeTextInput(values.fullName);
+  if ("phoneNumber" in values) payload.phoneNumber = normalizeTextInput(values.phoneNumber);
+  if ("email" in values) payload.email = normalizeTextInput(values.email);
+  if ("avatarUrl" in values) payload.avatarUrl = normalizeTextInput(values.avatarUrl);
+  if ("gender" in values) payload.gender = values.gender || "UNSPECIFIED";
+  if ("dateOfBirth" in values)
+    payload.dateOfBirth = values.dateOfBirth ? `${values.dateOfBirth}T00:00:00` : null;
+  if ("bio" in values) payload.bio = normalizeTextInput(values.bio);
+  return payload;
+}
+
+function mapFormValuesToUser(values = {}) {
+  const mapped = {};
+  if ("fullName" in values) mapped.fullName = normalizeTextInput(values.fullName);
+  if ("phoneNumber" in values) mapped.phoneNumber = normalizeTextInput(values.phoneNumber);
+  if ("email" in values) mapped.email = normalizeTextInput(values.email);
+  if ("avatarUrl" in values) mapped.avatarUrl = normalizeTextInput(values.avatarUrl);
+  if ("gender" in values) mapped.gender = values.gender || "UNSPECIFIED";
+  if ("dateOfBirth" in values)
+    mapped.dateOfBirth = values.dateOfBirth ? `${values.dateOfBirth}T00:00:00` : null;
+  if ("bio" in values) mapped.bio = normalizeTextInput(values.bio);
+  return mapped;
+}
+
+function normalizeTextInput(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
 }
 
 function buildQueryParams({ filters, page, size, sortBy, sortDirection }) {
