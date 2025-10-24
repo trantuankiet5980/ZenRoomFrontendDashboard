@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
 import { formatCurrency } from "../utils/format";
@@ -858,8 +859,8 @@ export default function Chat() {
                 }
               />
 
-              <div className="flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/60">
-                <div className="flex h-full flex-col">
+              <div className="relative flex-1 rounded-2xl border border-slate-100 bg-slate-50/60">
+                <div className="flex h-full flex-col overflow-hidden">
                   <div
                     ref={messageListRef}
                     className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
@@ -953,7 +954,7 @@ export default function Chat() {
                           <span className="text-xl leading-none">😊</span>
                         </button>
                         {isEmojiPickerOpen ? (
-                          <div className="absolute bottom-12 right-0 z-20 w-[280px] rounded-2xl border border-amber-100 bg-white p-2 shadow-lg">
+                          <div className="absolute bottom-full z-20 mb-3 w-[280px] rounded-2xl border border-amber-100 bg-white p-2 shadow-lg">
                             <EmojiMartPicker onEmojiSelect={handleEmojiSelect} />
                           </div>
                         ) : null}
@@ -1017,17 +1018,72 @@ function ConversationListItem({
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const itemRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const menuContainerRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  const updateMenuPosition = useCallback(() => {
+    if (!menuButtonRef.current) return;
+    if (typeof window === "undefined") return;
+
+    const rect = menuButtonRef.current.getBoundingClientRect();
+    const menuWidth = 192; // w-48
+    const gap = 8;
+    const viewportPadding = 16;
+
+    let left = rect.right - menuWidth;
+    const maxLeft = window.innerWidth - viewportPadding - menuWidth;
+    left = Math.min(Math.max(left, viewportPadding), maxLeft);
+
+    let top = rect.bottom + gap;
+
+    if (menuContainerRef.current) {
+      const { height } = menuContainerRef.current.getBoundingClientRect();
+      const maxBottom = window.innerHeight - viewportPadding;
+      if (top + height > maxBottom) {
+        const aboveTop = rect.top - gap - height;
+        if (aboveTop >= viewportPadding) {
+          top = aboveTop;
+        } else {
+          top = Math.max(viewportPadding, maxBottom - height);
+        }
+      }
+    }
+
+    setMenuPosition({ top, left });
+  }, []);
+
+  const schedulePositionUpdate = useCallback(() => {
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        updateMenuPosition();
+      });
+    } else {
+      setTimeout(() => {
+        updateMenuPosition();
+      }, 0);
+    }
+  }, [updateMenuPosition]);
 
   useEffect(() => {
     if (!isMenuOpen) return undefined;
     const handleClickOutside = (event) => {
-      if (itemRef.current && !itemRef.current.contains(event.target)) {
+      const target = event.target;
+      if (itemRef.current?.contains(target) || menuContainerRef.current?.contains(target)) {
+        return;
+      }
+      setIsMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
         setIsMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isMenuOpen]);
 
@@ -1037,8 +1093,26 @@ function ConversationListItem({
     }
   }, [isActive]);
 
+  useLayoutEffect(() => {
+    if (!isMenuOpen) {
+      setMenuPosition(null);
+      return;
+    }
+    if (typeof window === "undefined") return undefined;
+
+    updateMenuPosition();
+
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [isMenuOpen, updateMenuPosition]);
+
   const handleSelectConversation = () => {
     setIsMenuOpen(false);
+    setMenuPosition(null);
     onSelect?.();
   };
 
@@ -1094,7 +1168,11 @@ function ConversationListItem({
             event.preventDefault();
             event.stopPropagation();
             setIsMenuOpen((prev) => !prev);
+            if (!isMenuOpen) {
+              schedulePositionUpdate();
+            }
           }}
+          ref={menuButtonRef}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition hover:border-amber-200 hover:text-amber-600"
         >
           <span className="sr-only">Tùy chọn hội thoại</span>
@@ -1105,60 +1183,74 @@ function ConversationListItem({
           </svg>
         </button>
 
-        {isMenuOpen ? (
-          <div className="absolute right-0 top-10 z-10 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setIsMenuOpen(false);
-                onViewInfo?.();
-              }}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
-            >
-              <span>Xem thông tin…</span>
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path
-                  d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (isDeleting) return;
-                setIsMenuOpen(false);
-                onDelete?.();
-              }}
-              className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
-                isDeleting
-                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                  : "text-red-600 hover:bg-red-50 hover:text-red-700"
-              }`}
-            >
-              <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path
-                  d="M6 7h12M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7m3 4v6m4-6v6"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </button>
-          </div>
-        ) : null}
+        {isMenuOpen && menuPosition && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                ref={(node) => {
+                  menuContainerRef.current = node;
+                  if (node) {
+                    schedulePositionUpdate();
+                  }
+                }}
+                style={{ top: menuPosition.top, left: menuPosition.left }}
+                className="fixed z-50 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl"
+              >
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setIsMenuOpen(false);
+                    setMenuPosition(null);
+                    onViewInfo?.();
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+                >
+                  <span>Xem thông tin…</span>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (isDeleting) return;
+                    setIsMenuOpen(false);
+                    setMenuPosition(null);
+                    onDelete?.();
+                  }}
+                  className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
+                    isDeleting
+                      ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                      : "text-red-600 hover:bg-red-50 hover:text-red-700"
+                  }`}
+                >
+                  <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M6 7h12M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7m3 4v6m4-6v6"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                </button>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </div>
   );
@@ -1187,7 +1279,7 @@ function ConversationHeader({ tenant, landlord, partner, property, onViewInfo, o
   const canDelete = typeof onDelete === "function";
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-90 bg-white px-3 py-1 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 flex-shrink-0">

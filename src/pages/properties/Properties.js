@@ -17,7 +17,7 @@ export default function Properties() {
   const dispatch = useDispatch();
   const {
     items, page, size, totalPages, totalElements,
-    status, q, createdFrom, createdTo, loading, error,
+    status, q, createdFrom, createdTo, loading,
     detail, detailLoading, actionLoadingId
   } = useSelector(s => s.properties);
 
