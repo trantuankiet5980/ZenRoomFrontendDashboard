@@ -6,6 +6,7 @@ import notificationsReducer from "./slices/notificationsSlice";
 import usersReducer from "./slices/usersSlice";
 import invoicesReducer from "./slices/invoicesSlice";
 import discountCodesReducer from "./slices/discountCodesSlice";
+import chatReducer from "./slices/chatSlice";
 
 const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ const store = configureStore({
     users: usersReducer,
     invoices: invoicesReducer,
     discountCodes: discountCodesReducer,
+    chat: chatReducer,
   },
 });
 
