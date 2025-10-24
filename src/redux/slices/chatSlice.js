@@ -13,6 +13,25 @@ export const fetchConversations = createAsyncThunk(
   }
 );
 
+export const searchUsersByPhone = createAsyncThunk(
+  "chat/searchUsersByPhone",
+  async (phoneNumber, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get("/v1/users/search/by-phone", {
+        params: { phone: phoneNumber },
+      });
+      const data = response?.data;
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data?.data)) return data.data;
+      return [];
+    } catch (error) {
+      return rejectWithValue(
+        resolveErrorMessage(error, "Không thể tìm kiếm người dùng theo số điện thoại."),
+      );
+    }
+  }
+);
+
 export const fetchConversationSummary = createAsyncThunk(
   "chat/fetchConversationSummary",
   async (conversationId, { rejectWithValue }) => {
@@ -63,10 +82,12 @@ export const markConversationRead = createAsyncThunk(
 
 export const sendMessage = createAsyncThunk(
   "chat/sendMessage",
-  async ({ conversationId, content, propertyId }, { rejectWithValue }) => {
+  async ({ conversationId, content, propertyId, peerId }, { rejectWithValue }) => {
     try {
-      const payload = { conversationId, content };
+      const payload = { content };
+      if (conversationId) payload.conversationId = conversationId;
       if (propertyId) payload.propertyId = propertyId;
+      if (peerId) payload.peerId = peerId;
       const response = await axiosInstance.post("/v1/chat/send", payload);
       return response.data;
     } catch (error) {
@@ -83,7 +104,7 @@ export const sendImagesMessage = createAsyncThunk(
   ) => {
     try {
       const formData = new FormData();
-      formData.append("conversationId", conversationId);
+      if (conversationId) formData.append("conversationId", conversationId);
       if (peerId) formData.append("peerId", peerId);
       if (propertyId) formData.append("propertyId", propertyId);
       if (content) formData.append("content", content);
@@ -114,6 +135,9 @@ const initialState = {
   sendError: null,
   uploadStatus: "idle",
   uploadError: null,
+  searchResults: [],
+  searchStatus: "idle",
+  searchError: null,
 };
 
 const chatSlice = createSlice({
@@ -123,17 +147,27 @@ const chatSlice = createSlice({
     setSelectedConversation(state, action) {
       state.selectedConversationId = action.payload || null;
     },
+    clearUserSearch(state) {
+      state.searchResults = [];
+      state.searchStatus = "idle";
+      state.searchError = null;
+    },
     clearChatError(state, action) {
       const { scope, conversationId } = action.payload || {};
       if (!scope) {
         state.conversationsError = null;
         state.sendError = null;
         state.uploadError = null;
+        state.searchError = null;
         state.messagesErrorById = {};
         return;
       }
       if (scope === "conversations") {
         state.conversationsError = null;
+        return;
+      }
+      if (scope === "search") {
+        state.searchError = null;
         return;
       }
       if (scope === "messages") {
@@ -155,6 +189,23 @@ const chatSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+    .addCase(searchUsersByPhone.pending, (state) => {
+        state.searchStatus = "loading";
+        state.searchError = null;
+      })
+      .addCase(searchUsersByPhone.fulfilled, (state, action) => {
+        state.searchStatus = "succeeded";
+        state.searchResults = action.payload || [];
+        state.searchError = null;
+      })
+      .addCase(searchUsersByPhone.rejected, (state, action) => {
+        if (action.error?.name === "AbortError") {
+          state.searchStatus = "idle";
+          return;
+        }
+        state.searchStatus = "failed";
+        state.searchError = action.payload || action.error?.message || "Không thể tìm kiếm người dùng.";
+      })
       .addCase(fetchConversations.pending, (state) => {
         state.conversationsStatus = "loading";
         state.conversationsError = null;
@@ -247,7 +298,21 @@ const chatSlice = createSlice({
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const message = action.payload;
-        const conversationId = message?.conversation?.conversationId || action.meta?.arg?.conversationId;
+        const conversation = message?.conversation;
+        const conversationId = conversation?.conversationId || action.meta?.arg?.conversationId;
+        if (conversation?.conversationId) {
+          const existingIndex = state.conversations.findIndex(
+            (item) => item.conversationId === conversation.conversationId,
+          );
+          if (existingIndex >= 0) {
+            state.conversations[existingIndex] = {
+              ...state.conversations[existingIndex],
+              ...conversation,
+            };
+          } else {
+            state.conversations.unshift(conversation);
+          }
+        }
         mergeMessageIntoState(state, conversationId, message);
         state.metaById[conversationId] = {
           ...(state.metaById[conversationId] || {}),
@@ -271,7 +336,21 @@ const chatSlice = createSlice({
       })
       .addCase(sendImagesMessage.fulfilled, (state, action) => {
         const message = action.payload;
-        const conversationId = message?.conversation?.conversationId || action.meta?.arg?.conversationId;
+        const conversation = message?.conversation;
+        const conversationId = conversation?.conversationId || action.meta?.arg?.conversationId;
+        if (conversation?.conversationId) {
+          const existingIndex = state.conversations.findIndex(
+            (item) => item.conversationId === conversation.conversationId,
+          );
+          if (existingIndex >= 0) {
+            state.conversations[existingIndex] = {
+              ...state.conversations[existingIndex],
+              ...conversation,
+            };
+          } else {
+            state.conversations.unshift(conversation);
+          }
+        }
         mergeMessageIntoState(state, conversationId, message);
         state.metaById[conversationId] = {
           ...(state.metaById[conversationId] || {}),
@@ -292,7 +371,7 @@ const chatSlice = createSlice({
   },
 });
 
-export const { setSelectedConversation, clearChatError } = chatSlice.actions;
+export const { setSelectedConversation, clearChatError, clearUserSearch } = chatSlice.actions;
 export default chatSlice.reducer;
 
 function mergeMessageIntoState(state, conversationId, message) {

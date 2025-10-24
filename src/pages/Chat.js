@@ -7,10 +7,12 @@ import { resolveAssetUrl, resolveAvatarUrl } from "../utils/cdn";
 import { showToast } from "../utils/toast";
 import {
   clearChatError,
+  clearUserSearch,
   fetchConversationSummary,
   fetchConversations,
   fetchMessages,
   markConversationRead,
+  searchUsersByPhone,
   sendImagesMessage,
   sendMessage,
   setSelectedConversation,
@@ -31,11 +33,15 @@ export default function Chat() {
     sendError,
     uploadStatus,
     uploadError,
+    searchResults,
+    searchStatus,
+    searchError,
   } = useSelector((state) => state.chat);
   const currentUserId = useSelector((state) => state.auth.userId);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [messageContent, setMessageContent] = useState("");
+  const [selectedPeer, setSelectedPeer] = useState(null);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const messageListRef = useRef(null);
   const skipScrollRef = useRef(false);
@@ -66,6 +72,13 @@ export default function Chat() {
       dispatch(clearChatError({ scope: "upload" }));
     }
   }, [uploadError, dispatch]);
+
+  useEffect(() => {
+    if (searchError) {
+      showToast("error", searchError);
+      dispatch(clearChatError({ scope: "search" }));
+    }
+  }, [searchError, dispatch]);
 
   const sortedConversations = useMemo(() => {
     if (!conversations?.length) return [];
@@ -133,11 +146,12 @@ export default function Chat() {
 
   useEffect(() => {
     if (selectedConversationId) return;
+    if (selectedPeer) return;
     const firstConversation = sortedConversations[0];
     if (firstConversation) {
       dispatch(setSelectedConversation(firstConversation.conversationId));
     }
-  }, [sortedConversations, selectedConversationId, dispatch]);
+  }, [sortedConversations, selectedConversationId, selectedPeer, dispatch]);
 
   useEffect(() => {
     if (!selectedConversationId) return;
@@ -168,7 +182,7 @@ export default function Chat() {
   useEffect(() => {
     skipScrollRef.current = false;
     setMessageContent("");
-  }, [selectedConversationId]);
+  }, [selectedConversationId, selectedPeer?.userId]);
 
   const handleRefresh = useCallback(() => {
     dispatch(fetchConversations());
@@ -177,10 +191,59 @@ export default function Chat() {
   const handleSelectConversation = useCallback(
     (conversationId) => {
       if (!conversationId) return;
+      setSelectedPeer(null);
       dispatch(setSelectedConversation(conversationId));
     },
     [dispatch]
   );
+
+  const handleSearchSubmit = useCallback(
+    (event) => {
+      event?.preventDefault();
+      const term = searchTerm.trim();
+      if (!term) {
+        dispatch(clearUserSearch());
+        return;
+      }
+      dispatch(searchUsersByPhone(term));
+    },
+    [dispatch, searchTerm]
+  );
+
+  const findConversationByUserId = useCallback(
+    (userId) => {
+      if (!userId) return null;
+      return (
+        conversations.find(
+          (conversation) =>
+            conversation?.tenant?.userId === userId ||
+            conversation?.landlord?.userId === userId
+        ) || null
+      );
+    },
+    [conversations]
+  );
+
+  const handleSelectUserResult = useCallback(
+    (user) => {
+      if (!user?.userId) return;
+      const existing = findConversationByUserId(user.userId);
+      if (existing) {
+        setSelectedPeer(null);
+        dispatch(setSelectedConversation(existing.conversationId));
+        return;
+      }
+      dispatch(setSelectedConversation(null));
+      setSelectedPeer(user);
+    },
+    [dispatch, findConversationByUserId]
+  );
+
+  useEffect(() => {
+    if (searchTerm.trim()) return;
+    if (searchStatus === "idle" && !searchResults.length) return;
+    dispatch(clearUserSearch());
+  }, [searchTerm, searchStatus, searchResults, dispatch]);
 
   const handleLoadMore = useCallback(() => {
     if (!selectedConversationId) return;
@@ -207,31 +270,54 @@ export default function Chat() {
   const handleSendText = useCallback(
     (event) => {
       event?.preventDefault();
-      if (!selectedConversationId) return;
       const trimmed = messageContent.trim();
       if (!trimmed) return;
+      const conversationId = selectedConversationId;
       const propertyId = selectedConversation?.property?.propertyId;
-      dispatch(sendMessage({ conversationId: selectedConversationId, content: trimmed, propertyId }))
+      const peerId = selectedPeer?.userId || resolvePeerId(selectedConversation, currentUserId);
+      if (!conversationId && !peerId) return;
+      dispatch(
+        sendMessage({
+          conversationId,
+          content: trimmed,
+          propertyId,
+          peerId,
+        })
+      )
         .unwrap()
-        .then(() => {
+        .then((message) => {
           setMessageContent("");
+          const newConversationId = message?.conversation?.conversationId;
+          if (newConversationId) {
+            dispatch(setSelectedConversation(newConversationId));
+            setSelectedPeer(null);
+          }
         })
         .catch(() => {});
     },
-    [dispatch, messageContent, selectedConversationId, selectedConversation]
+    [
+      dispatch,
+      messageContent,
+      selectedConversationId,
+      selectedConversation,
+      selectedPeer,
+      currentUserId,
+    ]
   );
 
   const handleUploadImages = useCallback(
     (event) => {
-      if (!selectedConversationId) return;
+      if (!selectedConversationId && !selectedPeer) return;
       const input = event.target;
       const files = Array.from(input?.files || []);
       if (!files.length) return;
       const propertyId = selectedConversation?.property?.propertyId;
-      const peerId = resolvePeerId(selectedConversation, currentUserId);
+      const conversationId = selectedConversationId;
+      const peerId = selectedPeer?.userId || resolvePeerId(selectedConversation, currentUserId);
+      if (!conversationId && !peerId) return;
       dispatch(
         sendImagesMessage({
-          conversationId: selectedConversationId,
+          conversationId,
           images: files,
           propertyId,
           peerId,
@@ -239,8 +325,13 @@ export default function Chat() {
         })
       )
         .unwrap()
-        .then(() => {
+        .then((message) => {
           setMessageContent("");
+          const newConversationId = message?.conversation?.conversationId;
+          if (newConversationId) {
+            dispatch(setSelectedConversation(newConversationId));
+            setSelectedPeer(null);
+          }
         })
         .catch(() => {})
         .finally(() => {
@@ -249,7 +340,14 @@ export default function Chat() {
           }
         });
     },
-    [dispatch, selectedConversationId, selectedConversation, currentUserId, messageContent]
+    [
+      dispatch,
+      selectedConversationId,
+      selectedConversation,
+      selectedPeer,
+      currentUserId,
+      messageContent,
+    ]
   );
 
   const canLoadMore = useMemo(() => {
@@ -307,34 +405,122 @@ export default function Chat() {
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
         <PageSection title="Danh sách hội thoại" padded>
           <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-600" htmlFor="chat-search">
-                Tìm kiếm
-              </label>
-              <div className="relative mt-1">
-                <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4">
-                    <path
-                      d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+            <form onSubmit={handleSearchSubmit} className="space-y-2">
+              <div>
+                <label className="block text-sm font-medium text-slate-600" htmlFor="chat-search">
+                  Tìm theo số điện thoại
+                </label>
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4">
+                        <path
+                          d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      id="chat-search"
+                      type="tel"
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
+                      placeholder="Nhập số điện thoại người dùng"
+                      className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
                     />
-                  </svg>
-                </span>
-                <input
-                  id="chat-search"
-                  type="text"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Tên, số điện thoại người thuê hoặc chủ nhà"
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                />
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={searchStatus === "loading"}
+                  >
+                    {searchStatus === "loading" ? "Đang tìm" : "Tìm kiếm"}
+                  </button>
+                </div>
               </div>
+              <p className="text-xs text-slate-500">
+                Nhập số điện thoại chính xác để mở hội thoại với người dùng.
+              </p>
+            </form>
+
+            <div className="space-y-3">
+              {searchStatus === "loading" && (
+                <div className="space-y-2">
+                  {[1, 2].map((item) => (
+                    <div
+                      key={item}
+                      className="h-16 w-full animate-pulse rounded-2xl border border-amber-100 bg-amber-50/60"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {searchStatus === "succeeded" && searchResults.length === 0 && (
+                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-3 text-xs text-amber-700">
+                  Không tìm thấy người dùng với số điện thoại này.
+                </div>
+              )}
+
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Kết quả người dùng
+                  </p>
+                  {searchResults.map((user) => {
+                    const existingConversation = findConversationByUserId(user.userId);
+                    const isActive =
+                      selectedPeer?.userId === user.userId ||
+                      (existingConversation &&
+                        selectedConversationId === existingConversation.conversationId);
+                    const displayName = user?.fullName || "Người dùng";
+                    const phoneNumber = user?.phoneNumber || "—";
+                    const avatarSource = user?.avatarUrl;
+                    return (
+                      <button
+                        key={user.userId || user.phoneNumber || displayName}
+                        type="button"
+                        onClick={() => handleSelectUserResult(user)}
+                        className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition ${
+                          isActive
+                            ? "border-amber-300 bg-amber-50/80 shadow-md"
+                            : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="relative h-11 w-11 flex-shrink-0">
+                            {avatarSource ? (
+                              <img
+                                src={resolveAvatarUrl(avatarSource)}
+                                alt={displayName}
+                                className="h-11 w-11 rounded-full border border-white object-cover shadow"
+                              />
+                            ) : (
+                              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
+                                {getInitial(displayName)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-slate-800">{displayName}</p>
+                            <p className="text-xs text-slate-500">{phoneNumber}</p>
+                          </div>
+                          {existingConversation ? (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                              Đã có hội thoại
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
+            <div className="max-h-[70vh] space-y-2 overflow-y-auto border-t border-slate-100 pt-4 pr-1">
               {conversationsStatus === "loading" && (
                 <div className="space-y-2">
                   {[1, 2, 3, 4].map((item) => (
@@ -425,7 +611,7 @@ export default function Chat() {
         </PageSection>
 
         <PageSection title="Chi tiết hội thoại" padded>
-          {!selectedConversation && (
+          {!selectedConversation && !selectedPeer && (
             <div className="flex h-[70vh] flex-col items-center justify-center text-center text-slate-500">
               <svg viewBox="0 0 24 24" className="mb-3 h-12 w-12 text-amber-400">
                 <path
@@ -437,16 +623,16 @@ export default function Chat() {
                   fill="none"
                 />
               </svg>
-              <p className="text-sm">Hãy chọn một hội thoại để xem nội dung tin nhắn.</p>
+              <p className="text-sm">Hãy chọn một người dùng hoặc hội thoại để bắt đầu nhắn tin.</p>
             </div>
           )}
 
-          {selectedConversation && (
+          {(selectedConversation || selectedPeer) && (
             <div className="flex h-[70vh] flex-col gap-4">
               <ConversationHeader
                 tenant={tenantUser}
                 landlord={landlordUser}
-                partner={peerUser}
+                partner={selectedConversation ? peerUser : selectedPeer}
                 property={property}
               />
 
@@ -456,52 +642,60 @@ export default function Chat() {
                     ref={messageListRef}
                     className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
                   >
-                    {selectedMessagesError && (
-                      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                        {selectedMessagesError}
-                      </div>
-                    )}
+                    {selectedConversation ? (
+                      <>
+                        {selectedMessagesError && (
+                          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                            {selectedMessagesError}
+                          </div>
+                        )}
 
-                    {canLoadMore && (
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          onClick={handleLoadMore}
-                          disabled={isLoadingOlder || selectedMessagesStatus === "loading"}
-                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-amber-200 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {isLoadingOlder ? (
-                            <span>Đang tải thêm…</span>
-                          ) : (
-                            <span>Xem thêm tin nhắn cũ</span>
-                          )}
-                        </button>
-                      </div>
-                    )}
+                        {canLoadMore && (
+                          <div className="flex justify-center">
+                            <button
+                              type="button"
+                              onClick={handleLoadMore}
+                              disabled={isLoadingOlder || selectedMessagesStatus === "loading"}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-amber-200 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              {isLoadingOlder ? (
+                                <span>Đang tải thêm…</span>
+                              ) : (
+                                <span>Xem thêm tin nhắn cũ</span>
+                              )}
+                            </button>
+                          </div>
+                        )}
 
-                    {selectedMessagesStatus === "loading" && !selectedMessages.length && (
-                      <div className="space-y-3">
-                        {[1, 2, 3].map((item) => (
-                          <div
-                            key={item}
-                            className="h-16 w-3/4 animate-pulse rounded-2xl bg-white"
-                          />
-                        ))}
-                      </div>
-                    )}
+                        {selectedMessagesStatus === "loading" && !selectedMessages.length && (
+                          <div className="space-y-3">
+                            {[1, 2, 3].map((item) => (
+                              <div
+                                key={item}
+                                className="h-16 w-3/4 animate-pulse rounded-2xl bg-white"
+                              />
+                            ))}
+                          </div>
+                        )}
 
                     {selectedMessages.length === 0 && selectedMessagesStatus === "succeeded" && (
+                          <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
+                            Chưa có tin nhắn nào trong hội thoại này.
+                          </div>
+                        )}
+
+                        {selectedMessages.map((message) => {
+                          const isMine = message?.sender?.userId === currentUserId;
+                          return (
+                            <MessageBubble key={message.messageId} message={message} isMine={isMine} />
+                          );
+                        })}
+                      </>
+                    ) : (
                       <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
-                        Chưa có tin nhắn nào trong hội thoại này.
+                        Chưa có tin nhắn nào. Hãy gửi tin nhắn đầu tiên để tạo hội thoại.
                       </div>
                     )}
-
-                    {selectedMessages.map((message) => {
-                      const isMine = message?.sender?.userId === currentUserId;
-                      return (
-                        <MessageBubble key={message.messageId} message={message} isMine={isMine} />
-                      );
-                    })}
                   </div>
 
                   <form onSubmit={handleSendText} className="border-t border-slate-200 bg-white p-3">
@@ -513,7 +707,7 @@ export default function Chat() {
                           multiple
                           accept="image/*"
                           onChange={handleUploadImages}
-                          disabled={isUploading || isSending}
+                          disabled={isUploading || isSending || (!selectedConversationId && !selectedPeer)}
                         />
                         <svg viewBox="0 0 24 24" className="h-5 w-5">
                           <path
@@ -537,7 +731,11 @@ export default function Chat() {
 
                       <button
                         type="submit"
-                        disabled={isSending || !messageContent.trim()}
+                        disabled={
+                          isSending ||
+                          !messageContent.trim() ||
+                          (!selectedConversationId && !selectedPeer)
+                        }
                         className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
                       >
                         {isSending ? "Đang gửi..." : "Gửi"}
@@ -582,19 +780,6 @@ function ConversationHeader({ tenant, landlord, partner, property }) {
           <div>
             <p className="text-base font-semibold text-slate-800">{displayName}</p>
             <p className="text-sm text-slate-500">{phoneNumber}</p>
-          </div>
-        </div>
-
-        <div className="grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-          <div>
-            <p className="font-medium text-slate-500">Người thuê</p>
-            <p className="text-slate-800">{tenant?.fullName || "—"}</p>
-            <p className="text-xs text-slate-500">{tenant?.phoneNumber || "—"}</p>
-          </div>
-          <div>
-            <p className="font-medium text-slate-500">Chủ nhà</p>
-            <p className="text-slate-800">{landlord?.fullName || "—"}</p>
-            <p className="text-xs text-slate-500">{landlord?.phoneNumber || "—"}</p>
           </div>
         </div>
       </div>
