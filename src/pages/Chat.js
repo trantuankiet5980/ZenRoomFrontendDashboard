@@ -23,6 +23,7 @@ import {
 } from "../redux/slices/chatSlice";
 import useChatSocket from "../hooks/useChatSocket";
 import EmojiMartPicker from "../components/EmojiMartPicker";
+import ConfirmModal from "./users/ConfirmModal";
 
 export default function Chat() {
   const dispatch = useDispatch();
@@ -58,6 +59,7 @@ export default function Chat() {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
   const messageListRef = useRef(null);
   const skipScrollRef = useRef(false);
   const emojiPickerRef = useRef(null);
@@ -115,6 +117,12 @@ export default function Chat() {
     }
   }, [deleteStatus, deleteError, dispatch]);
 
+  useEffect(() => {
+    if (deleteStatus === "succeeded" || deleteStatus === "failed") {
+      setDeleteTargetId(null);
+    }
+  }, [deleteStatus]);
+  
   const sortedConversations = useMemo(() => {
     if (!conversations?.length) return [];
     return [...conversations]
@@ -517,7 +525,6 @@ export default function Chat() {
         : emoji.emoji || emoji.native || emoji.colons || emoji.shortcodes || "";
     if (!symbol) return;
     setMessageContent((prev) => `${prev}${symbol}`);
-    setIsEmojiPickerOpen(false);
   }, []);
 
   const handleUploadImages = useCallback(
@@ -585,13 +592,21 @@ export default function Chat() {
     (conversationId) => {
       const targetId = conversationId || selectedConversationId;
       if (!targetId) return;
-      const confirmed = window.confirm("Bạn có chắc muốn xóa đoạn chat này?");
-      if (!confirmed) return;
-      setIsInfoModalOpen(false);
-      dispatch(deleteConversation(targetId));
+      setDeleteTargetId(targetId);
     },
-    [dispatch, selectedConversationId]
+    [selectedConversationId]
   );
+
+  const handleConfirmDeleteConversation = useCallback(() => {
+    if (!deleteTargetId) return;
+    setIsInfoModalOpen(false);
+    dispatch(deleteConversation(deleteTargetId));
+  }, [deleteTargetId, dispatch]);
+
+  const handleCancelDeleteConversation = useCallback(() => {
+    if (deleteStatus === "loading") return;
+    setDeleteTargetId(null);
+  }, [deleteStatus]);
 
   const handleViewConversationInfo = useCallback(
     (conversation) => {
@@ -862,7 +877,7 @@ export default function Chat() {
                   }
                 />
 
-                    <div className="relative flex-1 min-h-0 rounded-2xl border border-slate-100 bg-slate-50/60">
+                <div className="relative flex-1 min-h-0 rounded-2xl border border-slate-100 bg-slate-50/60">
                   <div className="flex h-full min-h-0 flex-col overflow-hidden">
                     <div
                       ref={messageListRef}
@@ -1004,6 +1019,19 @@ export default function Chat() {
           onClose={() => setIsInfoModalOpen(false)}
         />
       )}
+
+      <ConfirmModal
+        open={Boolean(deleteTargetId)}
+        title="Xóa đoạn chat"
+        description="Bạn có chắc chắn muốn xóa đoạn chat này? Hành động này không thể hoàn tác."
+        confirmText="Xóa"
+        confirmVariant="danger"
+        loading={
+          deleteStatus === "loading" && deleteTargetId === deletingConversationId
+        }
+        onCancel={handleCancelDeleteConversation}
+        onConfirm={handleConfirmDeleteConversation}
+      />
     </PageShell>
   );
 }
@@ -1387,40 +1415,47 @@ function MessageBubble({ message, isMine }) {
   const createdAt = message?.createdAt;
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow ${
-          isMine
-            ? "bg-amber-500 text-white"
-            : "bg-white text-slate-700 border border-slate-100"
-        }`}
-      >
-        {senderName && !isMine ? (
-          <p className="mb-1 text-xs font-semibold text-amber-700">{senderName}</p>
-        ) : null}
-        {message?.content && (
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
-        )}
-        {property ? <SharedProperty property={property} isMine={isMine} /> : null}
-        {attachments?.length ? (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {attachments.map((attachment) => {
-              const url = deriveAttachmentUrl(attachment);
-              if (!url) return null;
-              return (
-                <a
-                  key={attachment.attachmentId || attachment.url || url}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative block overflow-hidden rounded-xl border border-white/60"
-                >
-                  <img src={url} alt="Đính kèm" className="h-32 w-full object-cover" />
-                </a>
-              );
-            })}
-          </div>
-        ) : null}
-        <p className={`mt-2 text-[11px] ${isMine ? "text-amber-100/80" : "text-slate-400"}`}>
+      <div className="max-w-[80%]">
+        <div
+          className={`rounded-2xl px-4 py-3 text-sm shadow ${
+            isMine
+              ? "text-slate-800"
+              : "bg-white text-slate-700 border border-slate-100"
+          }`}
+          style={isMine ? { backgroundColor: "#ffe3b8" } : undefined}
+        >
+          {senderName && !isMine ? (
+            <p className="mb-1 text-xs font-semibold text-amber-700">{senderName}</p>
+          ) : null}
+          {message?.content && (
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+          )}
+          {property ? <SharedProperty property={property} isMine={isMine} /> : null}
+          {attachments?.length ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {attachments.map((attachment) => {
+                const url = deriveAttachmentUrl(attachment);
+                if (!url) return null;
+                return (
+                  <a
+                    key={attachment.attachmentId || attachment.url || url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative block overflow-hidden rounded-xl border border-white/60"
+                  >
+                    <img src={url} alt="Đính kèm" className="h-32 w-full object-cover" />
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+        <p
+          className={`mt-1 text-[11px] ${
+            isMine ? "text-amber-400 text-right" : "text-slate-400"
+          }`}
+        >
           {formatRelativeTime(createdAt)}
         </p>
       </div>
