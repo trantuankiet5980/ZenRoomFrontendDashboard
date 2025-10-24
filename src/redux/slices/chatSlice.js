@@ -72,7 +72,7 @@ export const markConversationRead = createAsyncThunk(
   "chat/markConversationRead",
   async (conversationId, { rejectWithValue }) => {
     try {
-      await axiosInstance.post(`/v1/chat/conversations/${conversationId}/read-all`);
+      await axiosInstance.post(`/v1/chat/${conversationId}/read-all`);
       return { conversationId };
     } catch (error) {
       return rejectWithValue(resolveErrorMessage(error, "Không thể đánh dấu đã đọc."));
@@ -184,6 +184,90 @@ const chatSlice = createSlice({
       }
       if (scope === "upload") {
         state.uploadError = null;
+      }
+    },
+    wsReceiveMessage(state, action) {
+      const message = action.payload;
+      const conversation = message?.conversation;
+      const conversationId = conversation?.conversationId || message?.conversationId;
+      if (!conversationId) return;
+
+      if (conversation?.conversationId) {
+        const existingIndex = state.conversations.findIndex(
+          (item) => item.conversationId === conversation.conversationId,
+        );
+        if (existingIndex >= 0) {
+          state.conversations[existingIndex] = {
+            ...state.conversations[existingIndex],
+            ...conversation,
+          };
+        } else {
+          state.conversations.unshift(conversation);
+        }
+      }
+
+      mergeMessageIntoState(state, conversationId, message);
+
+      const meta = state.metaById[conversationId] || {};
+      state.metaById[conversationId] = {
+        ...meta,
+        lastMessage: message,
+        lastActivity: message?.createdAt || meta.lastActivity,
+      };
+    },
+    wsUpdateInbox(state, action) {
+      const payload = action.payload;
+      if (!payload) return;
+      const { conversationId, lastMessage, unread, lastActivity } = payload;
+      if (!conversationId) return;
+
+      const currentMeta = state.metaById[conversationId] || {};
+      const nextMeta = { ...currentMeta };
+
+      if (typeof unread === "number") {
+        nextMeta.unread = unread;
+      }
+      if (lastActivity) {
+        nextMeta.lastActivity = lastActivity;
+      }
+      if (lastMessage) {
+        nextMeta.lastMessage = lastMessage;
+      }
+
+      state.metaById[conversationId] = nextMeta;
+
+      if (lastMessage?.conversation?.conversationId || lastMessage?.conversationId) {
+        state.conversations = ensureConversationPresent(state.conversations, lastMessage.conversation);
+        mergeMessageIntoState(
+          state,
+          lastMessage?.conversation?.conversationId || lastMessage?.conversationId,
+          lastMessage,
+        );
+      }
+    },
+    wsMessageRead(state, action) {
+      const { conversationId, messageId } = action.payload || {};
+      if (!conversationId || !messageId) return;
+      const messagesState = state.messagesById[conversationId];
+      if (!messagesState?.items?.length) return;
+      const updated = messagesState.items.map((item) =>
+        item?.messageId === messageId ? { ...item, isRead: true } : item,
+      );
+      state.messagesById[conversationId] = {
+        ...messagesState,
+        items: updated,
+      };
+    },
+    wsConversationReadAll(state, action) {
+      const { conversationId, isSelf } = action.payload || {};
+      if (!conversationId) return;
+
+      if (isSelf) {
+        const meta = state.metaById[conversationId] || {};
+        state.metaById[conversationId] = {
+          ...meta,
+          unread: 0,
+        };
       }
     },
   },
@@ -371,7 +455,15 @@ const chatSlice = createSlice({
   },
 });
 
-export const { setSelectedConversation, clearChatError, clearUserSearch } = chatSlice.actions;
+export const {
+  setSelectedConversation,
+  clearChatError,
+  clearUserSearch,
+  wsReceiveMessage,
+  wsUpdateInbox,
+  wsMessageRead,
+  wsConversationReadAll,
+} = chatSlice.actions;
 export default chatSlice.reducer;
 
 function mergeMessageIntoState(state, conversationId, message) {
@@ -399,4 +491,15 @@ function mergeMessageIntoState(state, conversationId, message) {
 
 function resolveErrorMessage(error, fallback) {
   return error?.response?.data?.message || fallback;
+}
+
+function ensureConversationPresent(list, conversation) {
+  if (!conversation?.conversationId) return list;
+  const existingIndex = list.findIndex((item) => item.conversationId === conversation.conversationId);
+  if (existingIndex >= 0) {
+    const next = [...list];
+    next[existingIndex] = { ...next[existingIndex], ...conversation };
+    return next;
+  }
+  return [conversation, ...list];
 }

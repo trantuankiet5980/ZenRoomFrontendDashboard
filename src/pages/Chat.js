@@ -17,6 +17,7 @@ import {
   sendMessage,
   setSelectedConversation,
 } from "../redux/slices/chatSlice";
+import useChatSocket from "../hooks/useChatSocket";
 
 export default function Chat() {
   const dispatch = useDispatch();
@@ -38,6 +39,8 @@ export default function Chat() {
     searchError,
   } = useSelector((state) => state.chat);
   const currentUserId = useSelector((state) => state.auth.userId);
+
+  useChatSocket();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [messageContent, setMessageContent] = useState("");
@@ -86,7 +89,8 @@ export default function Chat() {
       .map((conversation) => {
         const meta = metaById[conversation.conversationId] || {};
         const lastMessage = meta.lastMessage;
-        const lastActivity = lastMessage?.createdAt || conversation.createdAt;
+        const lastActivity =
+          meta.lastActivity || lastMessage?.createdAt || conversation.createdAt;
         return {
           ...conversation,
           lastActivity,
@@ -376,7 +380,7 @@ export default function Chat() {
   return (
     <PageShell
       title="Nhắn tin"
-      description="Quản lý các cuộc hội thoại giữa người thuê và chủ nhà."
+      description="Quản lý các cuộc hội thoại với người dùng nền tảng."
       actions={
         <button
           type="button"
@@ -589,10 +593,6 @@ export default function Chat() {
                               </span>
                             </div>
                             <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
-                            <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[11px] text-slate-400">
-                              <span>Người thuê: {tenantName || "—"}</span>
-                              <span>Chủ nhà: {landlordName || "—"}</span>
-                            </div>
                           </div>
                         </div>
                       </button>
