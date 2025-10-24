@@ -26,6 +26,7 @@ export default function UsersTable({
   onView,
   onBan,
   onDelete,
+  highlightId,
 }) {
   const showEmpty = !loading && (!users || users.length === 0);
 
@@ -63,8 +64,18 @@ export default function UsersTable({
 
             {users.map((user) => {
               const avatarUrl = user.avatarUrl ? resolveAvatarUrl(user.avatarUrl) : null;
+              const isHighlighted = highlightId === user.userId;
+              const rowClasses = ["hover:bg-amber-50/40"];
+              if (isHighlighted) {
+                rowClasses.push("bg-amber-50/70 ring-2 ring-amber-400 animate-pulse");
+              }
+              const rowClassName = rowClasses.join(" ");
               return (
-                <tr key={user.userId} className="hover:bg-amber-50/40">
+                <tr
+                  key={user.userId}
+                  className={rowClassName}
+                  data-rowid={user.userId}
+                >
                   <td className="px-4 py-4 align-top">
                     <div className="flex items-start gap-3">
                       {avatarUrl ? (

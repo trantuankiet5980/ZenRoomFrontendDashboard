@@ -122,6 +122,20 @@ export const sendImagesMessage = createAsyncThunk(
   }
 );
 
+export const deleteConversation = createAsyncThunk(
+  "chat/deleteConversation",
+  async (conversationId, { rejectWithValue }) => {
+    try {
+      await axiosInstance.delete(`/v1/chat/${conversationId}`);
+      return { conversationId };
+    } catch (error) {
+      return rejectWithValue(
+        resolveErrorMessage(error, "Không thể xóa hội thoại."),
+      );
+    }
+  }
+);
+
 const initialState = {
   conversations: [],
   conversationsStatus: "idle",
@@ -138,6 +152,9 @@ const initialState = {
   searchResults: [],
   searchStatus: "idle",
   searchError: null,
+  deleteStatus: "idle",
+  deleteError: null,
+  deletingConversationId: null,
 };
 
 const chatSlice = createSlice({
@@ -270,10 +287,14 @@ const chatSlice = createSlice({
         };
       }
     },
+    resetDeleteConversationState(state) {
+      state.deleteStatus = "idle";
+      state.deleteError = null;
+    },
   },
   extraReducers: (builder) => {
     builder
-    .addCase(searchUsersByPhone.pending, (state) => {
+      .addCase(searchUsersByPhone.pending, (state) => {
         state.searchStatus = "loading";
         state.searchError = null;
       })
@@ -451,6 +472,38 @@ const chatSlice = createSlice({
         }
         state.uploadStatus = "failed";
         state.uploadError = action.payload || action.error?.message || "Không thể gửi hình ảnh.";
+        })
+      .addCase(deleteConversation.pending, (state, action) => {
+        state.deleteStatus = "loading";
+        state.deleteError = null;
+        state.deletingConversationId = action.meta?.arg || null;
+      })
+      .addCase(deleteConversation.fulfilled, (state, action) => {
+        const conversationId = action.payload?.conversationId || state.deletingConversationId;
+        state.deleteStatus = "succeeded";
+        state.deletingConversationId = null;
+        if (conversationId) {
+          state.conversations = state.conversations.filter(
+            (item) => item.conversationId !== conversationId,
+          );
+          delete state.metaById[conversationId];
+          delete state.messagesById[conversationId];
+          delete state.messagesStatusById[conversationId];
+          delete state.messagesErrorById[conversationId];
+          if (state.selectedConversationId === conversationId) {
+            state.selectedConversationId = null;
+          }
+        }
+      })
+      .addCase(deleteConversation.rejected, (state, action) => {
+        if (action.error?.name === "AbortError") {
+          state.deleteStatus = "idle";
+          state.deletingConversationId = null;
+          return;
+        }
+        state.deleteStatus = "failed";
+        state.deleteError = action.payload || action.error?.message || "Không thể xóa hội thoại.";
+        state.deletingConversationId = null;
       });
   },
 });
@@ -463,6 +516,7 @@ export const {
   wsUpdateInbox,
   wsMessageRead,
   wsConversationReadAll,
+  resetDeleteConversationState,
 } = chatSlice.actions;
 export default chatSlice.reducer;
 

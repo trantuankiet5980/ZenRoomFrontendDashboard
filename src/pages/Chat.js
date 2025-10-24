@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
-import { formatCurrency, formatDateTime } from "../utils/format";
+import { formatCurrency } from "../utils/format";
 import { resolveAssetUrl, resolveAvatarUrl } from "../utils/cdn";
 import { showToast } from "../utils/toast";
 import {
   clearChatError,
   clearUserSearch,
+  deleteConversation,
   fetchConversationSummary,
   fetchConversations,
   fetchMessages,
@@ -16,11 +18,14 @@ import {
   sendImagesMessage,
   sendMessage,
   setSelectedConversation,
+  resetDeleteConversationState,
 } from "../redux/slices/chatSlice";
 import useChatSocket from "../hooks/useChatSocket";
+import EmojiMartPicker from "../components/EmojiMartPicker";
 
 export default function Chat() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const {
     conversations,
     conversationsStatus,
@@ -37,6 +42,9 @@ export default function Chat() {
     searchResults,
     searchStatus,
     searchError,
+    deleteStatus,
+    deleteError,
+    deletingConversationId,
   } = useSelector((state) => state.chat);
   const currentUserId = useSelector((state) => state.auth.userId);
 
@@ -46,8 +54,17 @@ export default function Chat() {
   const [messageContent, setMessageContent] = useState("");
   const [selectedPeer, setSelectedPeer] = useState(null);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [activeNotification, setActiveNotification] = useState(null);
   const messageListRef = useRef(null);
   const skipScrollRef = useRef(false);
+  const emojiPickerRef = useRef(null);
+  const notificationIntervalRef = useRef(null);
+  const defaultTitleRef = useRef(typeof document !== "undefined" ? document.title : "");
+  const notificationInitializedRef = useRef(false);
+  const lastMessageIdsRef = useRef(new Map());
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (conversationsStatus === "idle") {
@@ -82,6 +99,20 @@ export default function Chat() {
       dispatch(clearChatError({ scope: "search" }));
     }
   }, [searchError, dispatch]);
+
+  useEffect(() => {
+    if (deleteStatus === "succeeded") {
+      showToast("success", "Đã xóa đoạn chat.");
+      dispatch(resetDeleteConversationState());
+    }
+  }, [deleteStatus, dispatch]);
+
+  useEffect(() => {
+    if (deleteStatus === "failed" && deleteError) {
+      showToast("error", deleteError);
+      dispatch(resetDeleteConversationState());
+    }
+  }, [deleteStatus, deleteError, dispatch]);
 
   const sortedConversations = useMemo(() => {
     if (!conversations?.length) return [];
@@ -188,6 +219,164 @@ export default function Chat() {
     setMessageContent("");
   }, [selectedConversationId, selectedPeer?.userId]);
 
+  useEffect(() => {
+    setIsEmojiPickerOpen(false);
+  }, [selectedConversationId, selectedPeer?.userId]);
+
+  useEffect(() => {
+    if (!isEmojiPickerOpen) return;
+    const handleClick = (event) => {
+      if (!emojiPickerRef.current) return;
+      if (!emojiPickerRef.current.contains(event.target)) {
+        setIsEmojiPickerOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [isEmojiPickerOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const audio = new Audio(`${process.env.PUBLIC_URL || ""}/sounds/message-notification.wav`);
+    audio.preload = "auto";
+    audioRef.current = audio;
+    return () => {
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+        notificationIntervalRef.current = null;
+      }
+      if (typeof document !== "undefined") {
+        document.title = defaultTitleRef.current || document.title;
+      }
+      audio.pause?.();
+      audioRef.current = null;
+    };
+  }, []);
+
+  const stopActiveNotification = useCallback(() => {
+    if (notificationIntervalRef.current) {
+      clearInterval(notificationIntervalRef.current);
+      notificationIntervalRef.current = null;
+    }
+    if (typeof document !== "undefined") {
+      document.title = defaultTitleRef.current || document.title;
+    }
+    setActiveNotification(null);
+  }, []);
+
+  const triggerNotification = useCallback(
+    (conversationId, senderName) => {
+      const label = `Bạn có tin nhắn từ ${senderName}`;
+      const audio = audioRef.current;
+      if (audio) {
+        try {
+          audio.currentTime = 0;
+          const playPromise = audio.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {});
+          }
+        } catch (_) {
+          // Ignore playback errors (autoplay restrictions, etc.)
+        }
+      }
+
+      setActiveNotification({ conversationId, label, timestamp: Date.now() });
+
+      if (typeof document === "undefined") return;
+      document.title = label;
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+      }
+      let toggle = false;
+      notificationIntervalRef.current = window.setInterval(() => {
+        toggle = !toggle;
+        document.title = toggle ? label : defaultTitleRef.current || label;
+      }, 1500);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!activeNotification) return undefined;
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      stopActiveNotification();
+    };
+    const handleFocus = () => {
+      stopActiveNotification();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [activeNotification, stopActiveNotification]);
+
+  useEffect(() => {
+    if (!notificationInitializedRef.current) {
+      notificationInitializedRef.current = true;
+      return;
+    }
+    if (!conversations?.length) {
+      lastMessageIdsRef.current = new Map();
+      return;
+    }
+
+    const updates = [];
+    conversations.forEach((conversation) => {
+      const conversationId = conversation?.conversationId;
+      if (!conversationId) return;
+      const meta = metaById[conversationId];
+      const lastMessage = meta?.lastMessage;
+      const messageId = lastMessage?.messageId;
+      if (!messageId) return;
+
+      const previousId = lastMessageIdsRef.current.get(conversationId);
+      if (previousId !== messageId) {
+        updates.push({ conversationId, lastMessage });
+        lastMessageIdsRef.current.set(conversationId, messageId);
+      }
+    });
+
+    updates.forEach(({ conversationId, lastMessage }) => {
+      if (!lastMessage) return;
+      if (lastMessage.sender?.userId === currentUserId) return;
+      if (
+        selectedConversationId === conversationId &&
+        typeof document !== "undefined" &&
+        !document.hidden &&
+        document.hasFocus()
+      ) {
+        return;
+      }
+      const senderName = lastMessage?.sender?.fullName || "người dùng";
+      showToast("info", `Bạn có tin nhắn mới từ ${senderName}`);
+      triggerNotification(conversationId, senderName);
+    });
+  }, [conversations, currentUserId, metaById, selectedConversationId, triggerNotification]);
+
+  useEffect(() => {
+    if (!conversations?.length) return;
+    conversations.forEach((conversation) => {
+      const conversationId = conversation?.conversationId;
+      const lastMessage = metaById[conversationId]?.lastMessage;
+      if (!conversationId || !lastMessage?.messageId) return;
+      if (!lastMessageIdsRef.current.has(conversationId)) {
+        lastMessageIdsRef.current.set(conversationId, lastMessage.messageId);
+      }
+    });
+  }, [conversations, metaById]);
+
+  useEffect(() => {
+    if (!activeNotification) return;
+    if (selectedConversationId && activeNotification.conversationId === selectedConversationId) {
+      stopActiveNotification();
+    }
+  }, [activeNotification, selectedConversationId, stopActiveNotification]);
+
   const handleRefresh = useCallback(() => {
     dispatch(fetchConversations());
   }, [dispatch]);
@@ -271,16 +460,15 @@ export default function Chat() {
     });
   }, [dispatch, messagesById, selectedConversationId]);
 
-  const handleSendText = useCallback(
-    (event) => {
-      event?.preventDefault();
-      const trimmed = messageContent.trim();
-      if (!trimmed) return;
+  const sendChatMessage = useCallback(
+    (content, { clearInput = false } = {}) => {
+      const trimmed = (content || "").trim();
+      if (!trimmed) return Promise.resolve(null);
       const conversationId = selectedConversationId;
       const propertyId = selectedConversation?.property?.propertyId;
       const peerId = selectedPeer?.userId || resolvePeerId(selectedConversation, currentUserId);
-      if (!conversationId && !peerId) return;
-      dispatch(
+      if (!conversationId && !peerId) return Promise.resolve(null);
+      return dispatch(
         sendMessage({
           conversationId,
           content: trimmed,
@@ -290,24 +478,46 @@ export default function Chat() {
       )
         .unwrap()
         .then((message) => {
-          setMessageContent("");
+          if (clearInput) {
+            setMessageContent("");
+          }
           const newConversationId = message?.conversation?.conversationId;
-          if (newConversationId) {
+          if (newConversationId && newConversationId !== selectedConversationId) {
             dispatch(setSelectedConversation(newConversationId));
             setSelectedPeer(null);
           }
-        })
-        .catch(() => {});
+          return message;
+        });
     },
     [
       dispatch,
-      messageContent,
       selectedConversationId,
       selectedConversation,
       selectedPeer,
       currentUserId,
+      setSelectedPeer,
+      setMessageContent,
     ]
   );
+
+  const handleSendText = useCallback(
+    (event) => {
+      event?.preventDefault();
+      sendChatMessage(messageContent, { clearInput: true }).catch(() => {});
+    },
+    [messageContent, sendChatMessage]
+  );
+
+  const handleEmojiSelect = useCallback((emoji) => {
+    if (!emoji) return;
+    const symbol =
+      typeof emoji === "string"
+        ? emoji
+        : emoji.emoji || emoji.native || emoji.colons || emoji.shortcodes || "";
+    if (!symbol) return;
+    setMessageContent((prev) => `${prev}${symbol}`);
+    setIsEmojiPickerOpen(false);
+  }, []);
 
   const handleUploadImages = useCallback(
     (event) => {
@@ -368,6 +578,32 @@ export default function Chat() {
   const peerUser = useMemo(
     () => resolvePartner(selectedConversation, currentUserId),
     [selectedConversation, currentUserId]
+  );
+
+  const handleDeleteConversation = useCallback(
+    (conversationId) => {
+      const targetId = conversationId || selectedConversationId;
+      if (!targetId) return;
+      const confirmed = window.confirm("Bạn có chắc muốn xóa đoạn chat này?");
+      if (!confirmed) return;
+      setIsInfoModalOpen(false);
+      dispatch(deleteConversation(targetId));
+    },
+    [dispatch, selectedConversationId]
+  );
+
+  const handleViewConversationInfo = useCallback(
+    (conversation) => {
+      if (!conversation) return;
+      const targetUser = resolvePartner(conversation, currentUserId);
+      const userId = targetUser?.userId || conversation?.tenant?.userId || conversation?.landlord?.userId;
+      if (!userId) {
+        showToast("info", "Không tìm thấy thông tin người dùng để hiển thị.");
+        return;
+      }
+      navigate("/users", { state: { highlightUserId: userId } });
+    },
+    [currentUserId, navigate]
   );
 
   const landlordUser = selectedConversation?.landlord || null;
@@ -554,48 +790,24 @@ export default function Chat() {
                     const landlordName = conversation?.landlord?.fullName || "—";
                     const fallbackName = participant?.fullName || tenantName || landlordName || "?";
                     return (
-                      <button
+                      <ConversationListItem
                         key={conversation.conversationId}
-                        type="button"
-                        onClick={() => handleSelectConversation(conversation.conversationId)}
-                        className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition ${
-                          isActive
-                            ? "border-amber-300 bg-amber-50/80 shadow-md"
-                            : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="relative h-12 w-12 flex-shrink-0">
-                            {participant?.avatarUrl ? (
-                              <img
-                                src={resolveAvatarUrl(participant.avatarUrl)}
-                                alt={participant?.fullName || "Avatar"}
-                                className="h-12 w-12 rounded-full border border-white object-cover shadow"
-                              />
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
-                                {getInitial(fallbackName)}
-                              </div>
-                            )}
-                            {unread ? (
-                              <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1 text-[11px] font-semibold text-white">
-                                {unread}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="truncate text-sm font-semibold text-slate-800">
-                                {participant?.fullName || tenantName || landlordName}
-                              </p>
-                              <span className="whitespace-nowrap text-xs text-slate-500">
-                                {formatRelativeTime(lastActivity)}
-                              </span>
-                            </div>
-                            <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
-                          </div>
-                        </div>
-                      </button>
+                        participant={participant}
+                        fallbackName={fallbackName}
+                        tenantName={tenantName}
+                        landlordName={landlordName}
+                        lastActivity={lastActivity}
+                        preview={preview}
+                        unread={unread}
+                        isActive={isActive}
+                        onSelect={() => handleSelectConversation(conversation.conversationId)}
+                        onViewInfo={() => handleViewConversationInfo(conversation)}
+                        onDelete={() => handleDeleteConversation(conversation.conversationId)}
+                        isDeleting={
+                          deleteStatus === "loading" &&
+                          deletingConversationId === conversation.conversationId
+                        }
+                      />
                     );
                   })}
                 </div>
@@ -634,6 +846,16 @@ export default function Chat() {
                 landlord={landlordUser}
                 partner={selectedConversation ? peerUser : selectedPeer}
                 property={property}
+                onViewInfo={() => setIsInfoModalOpen(true)}
+                onDelete={
+                  selectedConversation
+                    ? () => handleDeleteConversation(selectedConversation.conversationId)
+                    : null
+                }
+                isDeleting={
+                  deleteStatus === "loading" &&
+                  deletingConversationId === selectedConversationId
+                }
               />
 
               <div className="flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/60">
@@ -721,6 +943,22 @@ export default function Chat() {
                         </svg>
                       </label>
 
+                      <div className="relative" ref={emojiPickerRef}>
+                        <button
+                          type="button"
+                          onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-amber-200 bg-white text-amber-500 shadow-sm transition hover:bg-amber-50"
+                          disabled={isSending}
+                        >
+                          <span className="text-xl leading-none">😊</span>
+                        </button>
+                        {isEmojiPickerOpen ? (
+                          <div className="absolute bottom-12 right-0 z-20 w-[280px] rounded-2xl border border-amber-100 bg-white p-2 shadow-lg">
+                            <EmojiMartPicker onEmojiSelect={handleEmojiSelect} />
+                          </div>
+                        ) : null}
+                      </div>
+
                       <textarea
                         rows={1}
                         value={messageContent}
@@ -751,14 +989,202 @@ export default function Chat() {
           )}
         </PageSection>
       </div>
+
+      {isInfoModalOpen && (
+        <ConversationInfoDialog
+          conversation={selectedConversation}
+          partner={selectedConversation ? peerUser : selectedPeer}
+          onClose={() => setIsInfoModalOpen(false)}
+        />
+      )}
     </PageShell>
   );
 }
 
-function ConversationHeader({ tenant, landlord, partner, property }) {
-  const avatarSource = partner?.avatarUrl || tenant?.avatarUrl || landlord?.avatarUrl;
-  const displayName = partner?.fullName || tenant?.fullName || landlord?.fullName || "Hội thoại";
-  const phoneNumber = partner?.phoneNumber || tenant?.phoneNumber || landlord?.phoneNumber || "—";
+function ConversationListItem({
+  participant,
+  fallbackName,
+  tenantName,
+  landlordName,
+  lastActivity,
+  preview,
+  unread,
+  isActive,
+  onSelect,
+  onViewInfo,
+  onDelete,
+  isDeleting,
+}) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const itemRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return undefined;
+    const handleClickOutside = (event) => {
+      if (itemRef.current && !itemRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setIsMenuOpen(false);
+    }
+  }, [isActive]);
+
+  const handleSelectConversation = () => {
+    setIsMenuOpen(false);
+    onSelect?.();
+  };
+
+  return (
+    <div
+      ref={itemRef}
+      className={`relative rounded-2xl border px-3 py-3 shadow-sm transition ${
+        isActive
+          ? "border-amber-300 bg-amber-50/80 shadow-md"
+          : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={handleSelectConversation}
+        className="flex w-full items-start gap-3 pr-8 text-left"
+      >
+        <div className="relative h-12 w-12 flex-shrink-0">
+          {participant?.avatarUrl ? (
+            <img
+              src={resolveAvatarUrl(participant.avatarUrl)}
+              alt={participant?.fullName || "Avatar"}
+              className="h-12 w-12 rounded-full border border-white object-cover shadow"
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
+              {getInitial(fallbackName)}
+            </div>
+          )}
+          {unread ? (
+            <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1 text-[11px] font-semibold text-white">
+              {unread}
+            </span>
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-sm font-semibold text-slate-800">
+              {participant?.fullName || tenantName || landlordName}
+            </p>
+            <span className="whitespace-nowrap text-xs text-slate-500">
+              {formatRelativeTime(lastActivity)}
+            </span>
+          </div>
+          <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
+        </div>
+      </button>
+
+      <div className="absolute right-1.5 top-1.5">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsMenuOpen((prev) => !prev);
+          }}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition hover:border-amber-200 hover:text-amber-600"
+        >
+          <span className="sr-only">Tùy chọn hội thoại</span>
+          <svg viewBox="0 0 24 24" className="h-5 w-5">
+            <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="19" r="1.5" fill="currentColor" />
+          </svg>
+        </button>
+
+        {isMenuOpen ? (
+          <div className="absolute right-0 top-10 z-10 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsMenuOpen(false);
+                onViewInfo?.();
+              }}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+            >
+              <span>Xem thông tin…</span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4">
+                <path
+                  d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (isDeleting) return;
+                setIsMenuOpen(false);
+                onDelete?.();
+              }}
+              className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
+                isDeleting
+                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                  : "text-red-600 hover:bg-red-50 hover:text-red-700"
+              }`}
+            >
+              <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4">
+                <path
+                  d="M6 7h12M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7m3 4v6m4-6v6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ConversationHeader({ tenant, landlord, partner, property, onViewInfo, onDelete, isDeleting }) {
+  const avatarSource = tenant?.avatarUrl
+  const displayName =  tenant?.fullName || "Hội thoại";
+  const phoneNumber = tenant?.phoneNumber || "—";
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  const canDelete = typeof onDelete === "function";
 
   return (
     <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm">
@@ -782,8 +1208,52 @@ function ConversationHeader({ tenant, landlord, partner, property }) {
             <p className="text-sm text-slate-500">{phoneNumber}</p>
           </div>
         </div>
-      </div>
 
+        <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen((prev) => !prev)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-amber-200 hover:text-amber-600"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5">
+              <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+              <circle cx="12" cy="19" r="1.5" fill="currentColor" />
+            </svg>
+          </button>
+          {isMenuOpen ? (
+            <div className="absolute right-0 top-12 z-20 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  if (canDelete) {
+                    onDelete();
+                  }
+                }}
+                disabled={!canDelete || isDeleting}
+                className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
+                  !canDelete || isDeleting
+                    ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                    : "text-red-600 hover:bg-red-50 hover:text-red-700"
+                }`}
+              >
+                <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
+                <svg viewBox="0 0 24 24" className="h-4 w-4">
+                  <path
+                    d="M6 7h12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7h12Zm-7 4v6m4-6v6"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </svg>
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
       {property ? (
         <div className="mt-4 flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/60 p-3">
           <div className="h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-amber-100 bg-white">
@@ -853,8 +1323,96 @@ function MessageBubble({ message, isMine }) {
           </div>
         ) : null}
         <p className={`mt-2 text-[11px] ${isMine ? "text-amber-100/80" : "text-slate-400"}`}>
-          {formatDateTime(createdAt)}
+          {formatRelativeTime(createdAt)}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function ConversationInfoDialog({ conversation, partner, onClose }) {
+  const tenant = conversation?.tenant;
+  const landlord = conversation?.landlord;
+  const property = conversation?.property;
+
+  return (
+    <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/40 px-4 py-6">
+      <div className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-slate-800">Thông tin hội thoại</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 hover:border-amber-200 hover:text-amber-600"
+          >
+            <span className="sr-only">Đóng</span>
+            <svg viewBox="0 0 24 24" className="h-4 w-4">
+              <path
+                d="m7 7 10 10M7 17 17 7"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-4 text-sm text-slate-600">
+          {partner ? (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/60 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+                Người trò chuyện
+              </p>
+              <p className="mt-1 text-base font-semibold text-slate-800">{partner.fullName || "Người dùng"}</p>
+              <p className="text-sm text-slate-500">{partner.phoneNumber || "—"}</p>
+            </div>
+          ) : null}
+
+          {tenant ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Người thuê</p>
+              <p className="mt-1 font-semibold text-slate-800">{tenant.fullName || "—"}</p>
+              <p className="text-sm text-slate-500">{tenant.phoneNumber || "—"}</p>
+            </div>
+          ) : null}
+
+          {landlord ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chủ nhà</p>
+              <p className="mt-1 font-semibold text-slate-800">{landlord.fullName || "—"}</p>
+              <p className="text-sm text-slate-500">{landlord.phoneNumber || "—"}</p>
+            </div>
+          ) : null}
+
+          {property ? (
+            <div className="rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">Bất động sản</p>
+              <p className="mt-1 font-semibold text-amber-800">{property.title || "—"}</p>
+              <p className="text-sm text-amber-700">{property.address || "—"}</p>
+              {property.price ? (
+                <p className="mt-2 text-base font-semibold text-amber-600">
+                  {formatCurrency(property.price)}
+                </p>
+              ) : null}
+              {property.thumbnailUrl ? (
+                <div className="mt-3 overflow-hidden rounded-2xl border border-amber-100">
+                  <img
+                    src={resolveAssetUrl(property.thumbnailUrl)}
+                    alt={property.title || "Bất động sản"}
+                    className="h-40 w-full object-cover"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {conversation?.conversationId ? (
+            <div className="rounded-2xl border border-slate-100 bg-white p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Mã hội thoại</p>
+              <p className="mt-1 font-mono text-sm text-slate-700">{conversation.conversationId}</p>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -908,7 +1466,7 @@ function formatRelativeTime(value) {
   const minute = 60 * 1000;
   const hour = 60 * minute;
   const day = 24 * hour;
-  if (diff < minute) return "Vừa xong";
+  if (diff < minute) return "Vừa gửi";
   if (diff < hour) return `${Math.floor(diff / minute)} phút trước`;
   if (diff < day) return `${Math.floor(diff / hour)} giờ trước`;
   return date.toLocaleDateString("vi-VN");
