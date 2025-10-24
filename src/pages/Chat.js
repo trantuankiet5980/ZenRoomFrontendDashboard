@@ -1291,9 +1291,9 @@ function ConversationListItem({
 }
 
 function ConversationHeader({ tenant, landlord, partner, property, onViewInfo, onDelete, isDeleting }) {
-  const avatarSource = tenant?.avatarUrl
-  const displayName =  tenant?.fullName || "Hội thoại";
-  const phoneNumber = tenant?.phoneNumber || "—";
+  const avatarSource = landlord?.avatarUrl
+  const displayName =  landlord?.fullName || "Hội thoại";
+  const phoneNumber = landlord?.phoneNumber || "—";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
