@@ -39,7 +39,6 @@ export default function AdminLayout() {
     bookings: true,
     content: true,
   });
-  const toggleSec = (key) => setOpenSec((s) => ({ ...s, [key]: !s[key] }));
 
   // Dropdown user menu
   const [userMenuOpen, setUserMenuOpen] = useState(false);

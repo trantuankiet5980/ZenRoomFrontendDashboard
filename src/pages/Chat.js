@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
 import { formatCurrency } from "../utils/format";
@@ -22,6 +23,7 @@ import {
 } from "../redux/slices/chatSlice";
 import useChatSocket from "../hooks/useChatSocket";
 import EmojiMartPicker from "../components/EmojiMartPicker";
+import ConfirmModal from "./users/ConfirmModal";
 
 export default function Chat() {
   const dispatch = useDispatch();
@@ -57,6 +59,7 @@ export default function Chat() {
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [activeNotification, setActiveNotification] = useState(null);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
   const messageListRef = useRef(null);
   const skipScrollRef = useRef(false);
   const emojiPickerRef = useRef(null);
@@ -114,6 +117,12 @@ export default function Chat() {
     }
   }, [deleteStatus, deleteError, dispatch]);
 
+  useEffect(() => {
+    if (deleteStatus === "succeeded" || deleteStatus === "failed") {
+      setDeleteTargetId(null);
+    }
+  }, [deleteStatus]);
+  
   const sortedConversations = useMemo(() => {
     if (!conversations?.length) return [];
     return [...conversations]
@@ -516,7 +525,6 @@ export default function Chat() {
         : emoji.emoji || emoji.native || emoji.colons || emoji.shortcodes || "";
     if (!symbol) return;
     setMessageContent((prev) => `${prev}${symbol}`);
-    setIsEmojiPickerOpen(false);
   }, []);
 
   const handleUploadImages = useCallback(
@@ -584,13 +592,21 @@ export default function Chat() {
     (conversationId) => {
       const targetId = conversationId || selectedConversationId;
       if (!targetId) return;
-      const confirmed = window.confirm("Bạn có chắc muốn xóa đoạn chat này?");
-      if (!confirmed) return;
-      setIsInfoModalOpen(false);
-      dispatch(deleteConversation(targetId));
+      setDeleteTargetId(targetId);
     },
-    [dispatch, selectedConversationId]
+    [selectedConversationId]
   );
+
+  const handleConfirmDeleteConversation = useCallback(() => {
+    if (!deleteTargetId) return;
+    setIsInfoModalOpen(false);
+    dispatch(deleteConversation(deleteTargetId));
+  }, [deleteTargetId, dispatch]);
+
+  const handleCancelDeleteConversation = useCallback(() => {
+    if (deleteStatus === "loading") return;
+    setDeleteTargetId(null);
+  }, [deleteStatus]);
 
   const handleViewConversationInfo = useCallback(
     (conversation) => {
@@ -643,121 +659,123 @@ export default function Chat() {
       }
     >
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
-        <PageSection title="Danh sách hội thoại" padded>
-          <div className="space-y-4">
-            <form onSubmit={handleSearchSubmit} className="space-y-2">
-              <div>
-                <label className="block text-sm font-medium text-slate-600" htmlFor="chat-search">
-                  Tìm theo số điện thoại
-                </label>
-                <div className="mt-1 flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-                      <svg viewBox="0 0 24 24" className="h-4 w-4">
-                        <path
-                          d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </span>
-                    <input
-                      id="chat-search"
-                      type="tel"
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Nhập số điện thoại người dùng"
-                      className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                    />
+        <div className="min-h-0">
+          <PageSection title="Danh sách hội thoại" padded>
+            <div className="space-y-4">
+              <form onSubmit={handleSearchSubmit} className="space-y-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-600" htmlFor="chat-search">
+                    Tìm theo số điện thoại
+                  </label>
+                  <div className="mt-1 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                        <svg viewBox="0 0 24 24" className="h-4 w-4">
+                          <path
+                            d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm10 2-4.35-4.35"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <input
+                        id="chat-search"
+                        type="tel"
+                        value={searchTerm}
+                        onChange={(event) => setSearchTerm(event.target.value)}
+                        placeholder="Nhập số điện thoại người dùng"
+                        className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-sm text-slate-700 shadow-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="inline-flex h-10 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={searchStatus === "loading"}
+                    >
+                      {searchStatus === "loading" ? "Đang tìm" : "Tìm kiếm"}
+                    </button>
                   </div>
-                  <button
-                    type="submit"
-                    className="inline-flex h-10 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={searchStatus === "loading"}
-                  >
-                    {searchStatus === "loading" ? "Đang tìm" : "Tìm kiếm"}
-                  </button>
                 </div>
-              </div>
               <p className="text-xs text-slate-500">
-                Nhập số điện thoại chính xác để mở hội thoại với người dùng.
-              </p>
-            </form>
+                  Nhập số điện thoại chính xác để mở hội thoại với người dùng.
+                </p>
+              </form>
 
-            <div className="space-y-3">
-              {searchStatus === "loading" && (
-                <div className="space-y-2">
-                  {[1, 2].map((item) => (
-                    <div
-                      key={item}
-                      className="h-16 w-full animate-pulse rounded-2xl border border-amber-100 bg-amber-50/60"
-                    />
-                  ))}
-                </div>
-              )}
+              <div className="space-y-3">
+                {searchStatus === "loading" && (
+                  <div className="space-y-2">
+                    {[1, 2].map((item) => (
+                      <div
+                        key={item}
+                        className="h-16 w-full animate-pulse rounded-2xl border border-amber-100 bg-amber-50/60"
+                      />
+                    ))}
+                  </div>
+                )}
 
               {searchStatus === "succeeded" && searchResults.length === 0 && (
-                <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-3 text-xs text-amber-700">
-                  Không tìm thấy người dùng với số điện thoại này.
-                </div>
-              )}
+                  <div className="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-3 text-xs text-amber-700">
+                    Không tìm thấy người dùng với số điện thoại này.
+                  </div>
+                )}
 
-              {searchResults.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Kết quả người dùng
-                  </p>
-                  {searchResults.map((user) => {
-                    const existingConversation = findConversationByUserId(user.userId);
-                    const isActive =
-                      selectedPeer?.userId === user.userId ||
-                      (existingConversation &&
-                        selectedConversationId === existingConversation.conversationId);
-                    const displayName = user?.fullName || "Người dùng";
-                    const phoneNumber = user?.phoneNumber || "—";
-                    const avatarSource = user?.avatarUrl;
-                    return (
-                      <button
-                        key={user.userId || user.phoneNumber || displayName}
-                        type="button"
-                        onClick={() => handleSelectUserResult(user)}
-                        className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition ${
-                          isActive
-                            ? "border-amber-300 bg-amber-50/80 shadow-md"
-                            : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="relative h-11 w-11 flex-shrink-0">
-                            {avatarSource ? (
-                              <img
-                                src={resolveAvatarUrl(avatarSource)}
-                                alt={displayName}
-                                className="h-11 w-11 rounded-full border border-white object-cover shadow"
-                              />
-                            ) : (
-                              <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
-                                {getInitial(displayName)}
-                              </div>
-                            )}
+                {searchResults.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Kết quả người dùng
+                    </p>
+                    {searchResults.map((user) => {
+                      const existingConversation = findConversationByUserId(user.userId);
+                      const isActive =
+                        selectedPeer?.userId === user.userId ||
+                        (existingConversation &&
+                          selectedConversationId === existingConversation.conversationId);
+                      const displayName = user?.fullName || "Người dùng";
+                      const phoneNumber = user?.phoneNumber || "—";
+                      const avatarSource = user?.avatarUrl;
+                      return (
+                        <button
+                          key={user.userId || user.phoneNumber || displayName}
+                          type="button"
+                          onClick={() => handleSelectUserResult(user)}
+                          className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition ${
+                            isActive
+                              ? "border-amber-300 bg-amber-50/80 shadow-md"
+                              : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-11 w-11 flex-shrink-0">
+                              {avatarSource ? (
+                                <img
+                                  src={resolveAvatarUrl(avatarSource)}
+                                  alt={displayName}
+                                  className="h-11 w-11 rounded-full border border-white object-cover shadow"
+                                />
+                              ) : (
+                                <div className="flex h-11 w-11 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
+                                  {getInitial(displayName)}
+                                </div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-800">{displayName}</p>
+                              <p className="text-xs text-slate-500">{phoneNumber}</p>
+                            </div>
+                            {existingConversation ? (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                Đã có hội thoại
+                              </span>
+                            ) : null}
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-slate-800">{displayName}</p>
-                            <p className="text-xs text-slate-500">{phoneNumber}</p>
-                          </div>
-                          {existingConversation ? (
-                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                              Đã có hội thoại
-                            </span>
-                          ) : null}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                          </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="max-h-[70vh] space-y-2 overflow-y-auto border-t border-slate-100 pt-4 pr-1">
@@ -819,175 +837,179 @@ export default function Chat() {
                 </div>
               )}
             </div>
-          </div>
-        </PageSection>
+          </PageSection>
+        </div>
 
-        <PageSection title="Chi tiết hội thoại" padded>
-          {!selectedConversation && !selectedPeer && (
-            <div className="flex h-[70vh] flex-col items-center justify-center text-center text-slate-500">
-              <svg viewBox="0 0 24 24" className="mb-3 h-12 w-12 text-amber-400">
-                <path
-                  d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 1 1 8.5 8.5Z"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
+          <div className="min-h-0">
+          <PageSection title="Chi tiết hội thoại" padded>
+            {!selectedConversation && !selectedPeer && (
+              <div className="flex h-[70vh] flex-col items-center justify-center text-center text-slate-500">
+                <svg viewBox="0 0 24 24" className="mb-3 h-12 w-12 text-amber-400">
+                  <path
+                    d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 1 1 8.5 8.5Z"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </svg>
+                <p className="text-sm">Hãy chọn một người dùng hoặc hội thoại để bắt đầu nhắn tin.</p>
+              </div>
+            )}
+
+              {(selectedConversation || selectedPeer) && (
+              <div className="flex h-[80vh] min-h-0 flex-col gap-4">
+                <ConversationHeader
+                  tenant={tenantUser}
+                  landlord={landlordUser}
+                  partner={selectedConversation ? peerUser : selectedPeer}
+                  property={property}
+                  onViewInfo={() => setIsInfoModalOpen(true)}
+                  onDelete={
+                    selectedConversation
+                      ? () => handleDeleteConversation(selectedConversation.conversationId)
+                      : null
+                  }
+                  isDeleting={
+                    deleteStatus === "loading" &&
+                    deletingConversationId === selectedConversationId
+                  }
                 />
-              </svg>
-              <p className="text-sm">Hãy chọn một người dùng hoặc hội thoại để bắt đầu nhắn tin.</p>
-            </div>
-          )}
 
-          {(selectedConversation || selectedPeer) && (
-            <div className="flex h-[70vh] flex-col gap-4">
-              <ConversationHeader
-                tenant={tenantUser}
-                landlord={landlordUser}
-                partner={selectedConversation ? peerUser : selectedPeer}
-                property={property}
-                onViewInfo={() => setIsInfoModalOpen(true)}
-                onDelete={
-                  selectedConversation
-                    ? () => handleDeleteConversation(selectedConversation.conversationId)
-                    : null
-                }
-                isDeleting={
-                  deleteStatus === "loading" &&
-                  deletingConversationId === selectedConversationId
-                }
-              />
+                <div className="relative flex-1 min-h-0 rounded-2xl border border-slate-100 bg-slate-50/60">
+                  <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                    <div
+                      ref={messageListRef}
+                      className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+                    >
+                      {selectedConversation ? (
+                        <>
+                          {selectedMessagesError && (
+                            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                              {selectedMessagesError}
+                            </div>
+                          )}
 
-              <div className="flex-1 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/60">
-                <div className="flex h-full flex-col">
-                  <div
-                    ref={messageListRef}
-                    className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
-                  >
-                    {selectedConversation ? (
-                      <>
-                        {selectedMessagesError && (
-                          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-                            {selectedMessagesError}
-                          </div>
-                        )}
+                          {canLoadMore && (
+                            <div className="flex justify-center">
+                              <button
+                                type="button"
+                                onClick={handleLoadMore}
+                                disabled={isLoadingOlder || selectedMessagesStatus === "loading"}
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-amber-200 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {isLoadingOlder ? (
+                                  <span>Đang tải thêm…</span>
+                                ) : (
+                                  <span>Xem thêm tin nhắn cũ</span>
+                                )}
+                              </button>
+                            </div>
+                          )}
 
-                        {canLoadMore && (
-                          <div className="flex justify-center">
-                            <button
-                              type="button"
-                              onClick={handleLoadMore}
-                              disabled={isLoadingOlder || selectedMessagesStatus === "loading"}
-                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-medium text-slate-600 hover:border-amber-200 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {isLoadingOlder ? (
-                                <span>Đang tải thêm…</span>
-                              ) : (
-                                <span>Xem thêm tin nhắn cũ</span>
-                              )}
-                            </button>
-                          </div>
-                        )}
+                          {selectedMessagesStatus === "loading" && !selectedMessages.length && (
+                            <div className="space-y-3">
+                              {[1, 2, 3].map((item) => (
+                                <div
+                                  key={item}
+                                  className="h-16 w-3/4 animate-pulse rounded-2xl bg-white"
+                                />
+                              ))}
+                            </div>
+                          )}
 
-                        {selectedMessagesStatus === "loading" && !selectedMessages.length && (
-                          <div className="space-y-3">
-                            {[1, 2, 3].map((item) => (
-                              <div
-                                key={item}
-                                className="h-16 w-3/4 animate-pulse rounded-2xl bg-white"
-                              />
-                            ))}
-                          </div>
-                        )}
+                          {selectedMessages.length === 0 && selectedMessagesStatus === "succeeded" && (
+                            <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
+                              Chưa có tin nhắn nào trong hội thoại này.
+                            </div>
+                          )}
 
-                    {selectedMessages.length === 0 && selectedMessagesStatus === "succeeded" && (
-                          <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
-                            Chưa có tin nhắn nào trong hội thoại này.
-                          </div>
-                        )}
-
-                        {selectedMessages.map((message) => {
-                          const isMine = message?.sender?.userId === currentUserId;
-                          return (
-                            <MessageBubble key={message.messageId} message={message} isMine={isMine} />
-                          );
-                        })}
-                      </>
-                    ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
-                        Chưa có tin nhắn nào. Hãy gửi tin nhắn đầu tiên để tạo hội thoại.
-                      </div>
-                    )}
-                  </div>
+                          {selectedMessages.map((message) => {
+                            const isMine = message?.sender?.userId === currentUserId;
+                            return (
+                              <MessageBubble key={message.messageId} message={message} isMine={isMine} />
+                            );
+                          })}
+                        </>
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
+                          Chưa có tin nhắn nào. Hãy gửi tin nhắn đầu tiên để tạo hội thoại.
+                        </div>
+                      )}
+                    </div>
 
                   <form onSubmit={handleSendText} className="border-t border-slate-200 bg-white p-3">
-                    <div className="flex items-end gap-2">
-                      <label className="relative inline-flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100">
-                        <input
-                          type="file"
-                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                          multiple
-                          accept="image/*"
-                          onChange={handleUploadImages}
-                          disabled={isUploading || isSending || (!selectedConversationId && !selectedPeer)}
-                        />
-                        <svg viewBox="0 0 24 24" className="h-5 w-5">
-                          <path
-                            d="M4 17v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1M16 9l-4-4-4 4M12 5v12"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            fill="none"
+                      <div className="flex items-end gap-2">
+                        <label className="relative inline-flex h-10 w-10 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100">
+                          <input
+                            type="file"
+                            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                            multiple
+                            accept="image/*"
+                            onChange={handleUploadImages}
+                            disabled={isUploading || isSending || (!selectedConversationId && !selectedPeer)}
                           />
-                        </svg>
-                      </label>
+                        <svg viewBox="0 0 24 24" className="h-5 w-5">
+                            <path
+                              d="M4 17v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1M16 9l-4-4-4 4M12 5v12"
+                              stroke="currentColor"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              fill="none"
+                            />
+                          </svg>
+                        </label>
 
-                      <div className="relative" ref={emojiPickerRef}>
+                        <div className="relative" ref={emojiPickerRef}>
+                          <button
+                            type="button"
+                            onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-amber-200 bg-white text-amber-500 shadow-sm transition hover:bg-amber-50"
+                            disabled={isSending}
+                          >
+                            <span className="text-xl leading-none">😊</span>
+                          </button>
+                          {isEmojiPickerOpen ? (
+                            <div className="absolute bottom-full z-20 mb-3 w-[280px] rounded-2xl border border-amber-100 bg-white p-2 shadow-lg">
+                              <EmojiMartPicker onEmojiSelect={handleEmojiSelect} />
+                            </div>
+                          ) : null}
+                        </div>
+
+                        <textarea
+                          rows={1}
+                          value={messageContent}
+                          onChange={(event) => setMessageContent(event.target.value)}
+                          placeholder="Nhập tin nhắn..."
+                          className="max-h-32 flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+                        />
+
                         <button
-                          type="button"
-                          onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
-                          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-amber-200 bg-white text-amber-500 shadow-sm transition hover:bg-amber-50"
-                          disabled={isSending}
+                          type="submit"
+                          disabled={
+                            isSending ||
+                            !messageContent.trim() ||
+                            (!selectedConversationId && !selectedPeer)
+                          }
+                          className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
                         >
-                          <span className="text-xl leading-none">😊</span>
+                          {isSending ? "Đang gửi..." : "Gửi"}
                         </button>
-                        {isEmojiPickerOpen ? (
-                          <div className="absolute bottom-12 right-0 z-20 w-[280px] rounded-2xl border border-amber-100 bg-white p-2 shadow-lg">
-                            <EmojiMartPicker onEmojiSelect={handleEmojiSelect} />
-                          </div>
-                        ) : null}
                       </div>
 
-                      <textarea
-                        rows={1}
-                        value={messageContent}
-                        onChange={(event) => setMessageContent(event.target.value)}
-                        placeholder="Nhập tin nhắn..."
-                        className="max-h-32 flex-1 resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
-                      />
-
-                      <button
-                        type="submit"
-                        disabled={
-                          isSending ||
-                          !messageContent.trim() ||
-                          (!selectedConversationId && !selectedPeer)
-                        }
-                        className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-amber-300"
-                      >
-                        {isSending ? "Đang gửi..." : "Gửi"}
-                      </button>
-                    </div>
-                    {isUploading && (
-                      <p className="mt-2 text-xs text-amber-600">Đang tải hình ảnh...</p>
-                    )}
-                  </form>
+                      {isUploading && (
+                        <p className="mt-2 text-xs text-amber-600">Đang tải hình ảnh...</p>
+                      )}
+                    </form>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </PageSection>
+            )}
+          </PageSection>
+
+        </div>
       </div>
 
       {isInfoModalOpen && (
@@ -997,6 +1019,19 @@ export default function Chat() {
           onClose={() => setIsInfoModalOpen(false)}
         />
       )}
+
+      <ConfirmModal
+        open={Boolean(deleteTargetId)}
+        title="Xóa đoạn chat"
+        description="Bạn có chắc chắn muốn xóa đoạn chat này? Hành động này không thể hoàn tác."
+        confirmText="Xóa"
+        confirmVariant="danger"
+        loading={
+          deleteStatus === "loading" && deleteTargetId === deletingConversationId
+        }
+        onCancel={handleCancelDeleteConversation}
+        onConfirm={handleConfirmDeleteConversation}
+      />
     </PageShell>
   );
 }
@@ -1017,17 +1052,72 @@ function ConversationListItem({
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const itemRef = useRef(null);
+  const menuButtonRef = useRef(null);
+  const menuContainerRef = useRef(null);
+  const [menuPosition, setMenuPosition] = useState(null);
+
+  const updateMenuPosition = useCallback(() => {
+    if (!menuButtonRef.current) return;
+    if (typeof window === "undefined") return;
+
+    const rect = menuButtonRef.current.getBoundingClientRect();
+    const menuWidth = 192; // w-48
+    const gap = 8;
+    const viewportPadding = 16;
+
+    let left = rect.right - menuWidth;
+    const maxLeft = window.innerWidth - viewportPadding - menuWidth;
+    left = Math.min(Math.max(left, viewportPadding), maxLeft);
+
+    let top = rect.bottom + gap;
+
+    if (menuContainerRef.current) {
+      const { height } = menuContainerRef.current.getBoundingClientRect();
+      const maxBottom = window.innerHeight - viewportPadding;
+      if (top + height > maxBottom) {
+        const aboveTop = rect.top - gap - height;
+        if (aboveTop >= viewportPadding) {
+          top = aboveTop;
+        } else {
+          top = Math.max(viewportPadding, maxBottom - height);
+        }
+      }
+    }
+
+    setMenuPosition({ top, left });
+  }, []);
+
+  const schedulePositionUpdate = useCallback(() => {
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => {
+        updateMenuPosition();
+      });
+    } else {
+      setTimeout(() => {
+        updateMenuPosition();
+      }, 0);
+    }
+  }, [updateMenuPosition]);
 
   useEffect(() => {
     if (!isMenuOpen) return undefined;
     const handleClickOutside = (event) => {
-      if (itemRef.current && !itemRef.current.contains(event.target)) {
+      const target = event.target;
+      if (itemRef.current?.contains(target) || menuContainerRef.current?.contains(target)) {
+        return;
+      }
+      setIsMenuOpen(false);
+    };
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
         setIsMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isMenuOpen]);
 
@@ -1037,8 +1127,26 @@ function ConversationListItem({
     }
   }, [isActive]);
 
+  useLayoutEffect(() => {
+    if (!isMenuOpen) {
+      setMenuPosition(null);
+      return;
+    }
+    if (typeof window === "undefined") return undefined;
+
+    updateMenuPosition();
+
+    window.addEventListener("resize", updateMenuPosition);
+    window.addEventListener("scroll", updateMenuPosition, true);
+    return () => {
+      window.removeEventListener("resize", updateMenuPosition);
+      window.removeEventListener("scroll", updateMenuPosition, true);
+    };
+  }, [isMenuOpen, updateMenuPosition]);
+
   const handleSelectConversation = () => {
     setIsMenuOpen(false);
+    setMenuPosition(null);
     onSelect?.();
   };
 
@@ -1094,7 +1202,11 @@ function ConversationListItem({
             event.preventDefault();
             event.stopPropagation();
             setIsMenuOpen((prev) => !prev);
+            if (!isMenuOpen) {
+              schedulePositionUpdate();
+            }
           }}
+          ref={menuButtonRef}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition hover:border-amber-200 hover:text-amber-600"
         >
           <span className="sr-only">Tùy chọn hội thoại</span>
@@ -1105,60 +1217,74 @@ function ConversationListItem({
           </svg>
         </button>
 
-        {isMenuOpen ? (
-          <div className="absolute right-0 top-10 z-10 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setIsMenuOpen(false);
-                onViewInfo?.();
-              }}
-              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
-            >
-              <span>Xem thông tin…</span>
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path
-                  d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </button>
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (isDeleting) return;
-                setIsMenuOpen(false);
-                onDelete?.();
-              }}
-              className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
-                isDeleting
-                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
-                  : "text-red-600 hover:bg-red-50 hover:text-red-700"
-              }`}
-            >
-              <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
-              <svg viewBox="0 0 24 24" className="h-4 w-4">
-                <path
-                  d="M6 7h12M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7m3 4v6m4-6v6"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-              </svg>
-            </button>
-          </div>
-        ) : null}
+        {isMenuOpen && menuPosition && typeof document !== "undefined"
+          ? createPortal(
+              <div
+                ref={(node) => {
+                  menuContainerRef.current = node;
+                  if (node) {
+                    schedulePositionUpdate();
+                  }
+                }}
+                style={{ top: menuPosition.top, left: menuPosition.left }}
+                className="fixed z-50 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl"
+              >
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setIsMenuOpen(false);
+                    setMenuPosition(null);
+                    onViewInfo?.();
+                  }}
+                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+                >
+                  <span>Xem thông tin…</span>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (isDeleting) return;
+                    setIsMenuOpen(false);
+                    setMenuPosition(null);
+                    onDelete?.();
+                  }}
+                  className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
+                    isDeleting
+                      ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                      : "text-red-600 hover:bg-red-50 hover:text-red-700"
+                  }`}
+                >
+                  <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
+                  <svg viewBox="0 0 24 24" className="h-4 w-4">
+                    <path
+                      d="M6 7h12M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7m3 4v6m4-6v6"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </svg>
+                </button>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </div>
   );
@@ -1187,7 +1313,7 @@ function ConversationHeader({ tenant, landlord, partner, property, onViewInfo, o
   const canDelete = typeof onDelete === "function";
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-white px-3 py-1 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="h-14 w-14 flex-shrink-0">
@@ -1289,40 +1415,47 @@ function MessageBubble({ message, isMine }) {
   const createdAt = message?.createdAt;
   return (
     <div className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow ${
-          isMine
-            ? "bg-amber-500 text-white"
-            : "bg-white text-slate-700 border border-slate-100"
-        }`}
-      >
-        {senderName && !isMine ? (
-          <p className="mb-1 text-xs font-semibold text-amber-700">{senderName}</p>
-        ) : null}
-        {message?.content && (
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
-        )}
-        {property ? <SharedProperty property={property} isMine={isMine} /> : null}
-        {attachments?.length ? (
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {attachments.map((attachment) => {
-              const url = deriveAttachmentUrl(attachment);
-              if (!url) return null;
-              return (
-                <a
-                  key={attachment.attachmentId || attachment.url || url}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="relative block overflow-hidden rounded-xl border border-white/60"
-                >
-                  <img src={url} alt="Đính kèm" className="h-32 w-full object-cover" />
-                </a>
-              );
-            })}
-          </div>
-        ) : null}
-        <p className={`mt-2 text-[11px] ${isMine ? "text-amber-100/80" : "text-slate-400"}`}>
+      <div className="max-w-[80%]">
+        <div
+          className={`rounded-2xl px-4 py-3 text-sm shadow ${
+            isMine
+              ? "text-slate-800"
+              : "bg-white text-slate-700 border border-slate-100"
+          }`}
+          style={isMine ? { backgroundColor: "#ffe3b8" } : undefined}
+        >
+          {senderName && !isMine ? (
+            <p className="mb-1 text-xs font-semibold text-amber-700">{senderName}</p>
+          ) : null}
+          {message?.content && (
+            <p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.content}</p>
+          )}
+          {property ? <SharedProperty property={property} isMine={isMine} /> : null}
+          {attachments?.length ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {attachments.map((attachment) => {
+                const url = deriveAttachmentUrl(attachment);
+                if (!url) return null;
+                return (
+                  <a
+                    key={attachment.attachmentId || attachment.url || url}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative block overflow-hidden rounded-xl border border-white/60"
+                  >
+                    <img src={url} alt="Đính kèm" className="h-32 w-full object-cover" />
+                  </a>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+        <p
+          className={`mt-1 text-[11px] ${
+            isMine ? "text-amber-400 text-right" : "text-slate-400"
+          }`}
+        >
           {formatRelativeTime(createdAt)}
         </p>
       </div>
