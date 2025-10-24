@@ -20,8 +20,7 @@ import {
   resetDeleteConversationState,
 } from "../redux/slices/chatSlice";
 import useChatSocket from "../hooks/useChatSocket";
-
-const STICKERS = ["😀", "😁", "😂", "😍", "🥳", "🙏", "👍", "👏"];
+import EmojiMartPicker from "../components/EmojiMartPicker";
 
 export default function Chat() {
   const dispatch = useDispatch();
@@ -54,10 +53,16 @@ export default function Chat() {
   const [selectedPeer, setSelectedPeer] = useState(null);
   const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
-  const [isStickerPickerOpen, setIsStickerPickerOpen] = useState(false);
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  const [activeNotification, setActiveNotification] = useState(null);
   const messageListRef = useRef(null);
   const skipScrollRef = useRef(false);
-  const stickerPickerRef = useRef(null);
+  const emojiPickerRef = useRef(null);
+  const notificationIntervalRef = useRef(null);
+  const defaultTitleRef = useRef(typeof document !== "undefined" ? document.title : "");
+  const notificationInitializedRef = useRef(false);
+  const lastMessageIdsRef = useRef(new Map());
+  const audioRef = useRef(null);
 
   useEffect(() => {
     if (conversationsStatus === "idle") {
@@ -213,22 +218,162 @@ export default function Chat() {
   }, [selectedConversationId, selectedPeer?.userId]);
 
   useEffect(() => {
-    setIsStickerPickerOpen(false);
+    setIsEmojiPickerOpen(false);
   }, [selectedConversationId, selectedPeer?.userId]);
 
   useEffect(() => {
-    if (!isStickerPickerOpen) return;
+    if (!isEmojiPickerOpen) return;
     const handleClick = (event) => {
-      if (!stickerPickerRef.current) return;
-      if (!stickerPickerRef.current.contains(event.target)) {
-        setIsStickerPickerOpen(false);
+      if (!emojiPickerRef.current) return;
+      if (!emojiPickerRef.current.contains(event.target)) {
+        setIsEmojiPickerOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClick);
     return () => {
       document.removeEventListener("mousedown", handleClick);
     };
-  }, [isStickerPickerOpen]);
+  }, [isEmojiPickerOpen]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const audio = new Audio(`${process.env.PUBLIC_URL || ""}/sounds/message-notification.wav`);
+    audio.preload = "auto";
+    audioRef.current = audio;
+    return () => {
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+        notificationIntervalRef.current = null;
+      }
+      if (typeof document !== "undefined") {
+        document.title = defaultTitleRef.current || document.title;
+      }
+      audio.pause?.();
+      audioRef.current = null;
+    };
+  }, []);
+
+  const stopActiveNotification = useCallback(() => {
+    if (notificationIntervalRef.current) {
+      clearInterval(notificationIntervalRef.current);
+      notificationIntervalRef.current = null;
+    }
+    if (typeof document !== "undefined") {
+      document.title = defaultTitleRef.current || document.title;
+    }
+    setActiveNotification(null);
+  }, []);
+
+  const triggerNotification = useCallback(
+    (conversationId, senderName) => {
+      const label = `Bạn có tin nhắn từ ${senderName}`;
+      const audio = audioRef.current;
+      if (audio) {
+        try {
+          audio.currentTime = 0;
+          const playPromise = audio.play();
+          if (playPromise && typeof playPromise.catch === "function") {
+            playPromise.catch(() => {});
+          }
+        } catch (_) {
+          // Ignore playback errors (autoplay restrictions, etc.)
+        }
+      }
+
+      setActiveNotification({ conversationId, label, timestamp: Date.now() });
+
+      if (typeof document === "undefined") return;
+      document.title = label;
+      if (notificationIntervalRef.current) {
+        clearInterval(notificationIntervalRef.current);
+      }
+      let toggle = false;
+      notificationIntervalRef.current = window.setInterval(() => {
+        toggle = !toggle;
+        document.title = toggle ? label : defaultTitleRef.current || label;
+      }, 1500);
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!activeNotification) return undefined;
+    const handleVisibility = () => {
+      if (document.hidden) return;
+      stopActiveNotification();
+    };
+    const handleFocus = () => {
+      stopActiveNotification();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [activeNotification, stopActiveNotification]);
+
+  useEffect(() => {
+    if (!notificationInitializedRef.current) {
+      notificationInitializedRef.current = true;
+      return;
+    }
+    if (!conversations?.length) {
+      lastMessageIdsRef.current = new Map();
+      return;
+    }
+
+    const updates = [];
+    conversations.forEach((conversation) => {
+      const conversationId = conversation?.conversationId;
+      if (!conversationId) return;
+      const meta = metaById[conversationId];
+      const lastMessage = meta?.lastMessage;
+      const messageId = lastMessage?.messageId;
+      if (!messageId) return;
+
+      const previousId = lastMessageIdsRef.current.get(conversationId);
+      if (previousId !== messageId) {
+        updates.push({ conversationId, lastMessage });
+        lastMessageIdsRef.current.set(conversationId, messageId);
+      }
+    });
+
+    updates.forEach(({ conversationId, lastMessage }) => {
+      if (!lastMessage) return;
+      if (lastMessage.sender?.userId === currentUserId) return;
+      if (
+        selectedConversationId === conversationId &&
+        typeof document !== "undefined" &&
+        !document.hidden &&
+        document.hasFocus()
+      ) {
+        return;
+      }
+      const senderName = lastMessage?.sender?.fullName || "người dùng";
+      showToast("info", `Bạn có tin nhắn từ ${senderName}`);
+      triggerNotification(conversationId, senderName);
+    });
+  }, [conversations, currentUserId, metaById, selectedConversationId, triggerNotification]);
+
+  useEffect(() => {
+    if (!conversations?.length) return;
+    conversations.forEach((conversation) => {
+      const conversationId = conversation?.conversationId;
+      const lastMessage = metaById[conversationId]?.lastMessage;
+      if (!conversationId || !lastMessage?.messageId) return;
+      if (!lastMessageIdsRef.current.has(conversationId)) {
+        lastMessageIdsRef.current.set(conversationId, lastMessage.messageId);
+      }
+    });
+  }, [conversations, metaById]);
+
+  useEffect(() => {
+    if (!activeNotification) return;
+    if (selectedConversationId && activeNotification.conversationId === selectedConversationId) {
+      stopActiveNotification();
+    }
+  }, [activeNotification, selectedConversationId, stopActiveNotification]);
 
   const handleRefresh = useCallback(() => {
     dispatch(fetchConversations());
@@ -339,7 +484,7 @@ export default function Chat() {
             dispatch(setSelectedConversation(newConversationId));
             setSelectedPeer(null);
           }
-        return message;
+          return message;
         });
     },
     [
@@ -353,7 +498,7 @@ export default function Chat() {
     ]
   );
 
-    const handleSendText = useCallback(
+  const handleSendText = useCallback(
     (event) => {
       event?.preventDefault();
       sendChatMessage(messageContent, { clearInput: true }).catch(() => {});
@@ -361,12 +506,15 @@ export default function Chat() {
     [messageContent, sendChatMessage]
   );
 
-  const handleSendSticker = useCallback(
-    (sticker) => {
-      setIsStickerPickerOpen(false);
-      sendChatMessage(sticker).catch(() => {});
+  const handleEmojiSelect = useCallback(
+    (emoji) => {
+      if (!emoji) return;
+      const symbol = emoji.native || emoji.colons || emoji.shortcodes || "";
+      if (!symbol) return;
+      setMessageContent((prev) => `${prev}${symbol}`);
+      setIsEmojiPickerOpen(false);
     },
-    [sendChatMessage]
+    []
   );
 
   const handleUploadImages = useCallback(
@@ -795,33 +943,18 @@ export default function Chat() {
                         </svg>
                       </label>
 
-                      <div className="relative" ref={stickerPickerRef}>
+                      <div className="relative" ref={emojiPickerRef}>
                         <button
                           type="button"
-                          onClick={() => setIsStickerPickerOpen((prev) => !prev)}
+                          onClick={() => setIsEmojiPickerOpen((prev) => !prev)}
                           className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-amber-200 bg-white text-amber-500 shadow-sm transition hover:bg-amber-50"
                           disabled={isSending}
                         >
                           <span className="text-xl leading-none">😊</span>
                         </button>
-                        {isStickerPickerOpen ? (
-                          <div className="absolute bottom-12 left-1/2 z-20 w-48 -translate-x-1/2 rounded-2xl border border-amber-100 bg-white p-3 text-sm shadow-lg">
-                            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-600">
-                              Chọn nhãn dán
-                            </p>
-                            <div className="grid grid-cols-4 gap-2">
-                              {STICKERS.map((item) => (
-                                <button
-                                  key={item}
-                                  type="button"
-                                  onClick={() => handleSendSticker(item)}
-                                  disabled={isSending || (!selectedConversationId && !selectedPeer)}
-                                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-100 bg-amber-50 text-xl hover:border-amber-200 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                  {item}
-                                </button>
-                              ))}
-                            </div>
+                        {isEmojiPickerOpen ? (
+                          <div className="absolute bottom-12 right-0 z-20 w-[280px] rounded-2xl border border-amber-100 bg-white p-2 shadow-lg">
+                            <EmojiMartPicker onEmojiSelect={handleEmojiSelect} />
                           </div>
                         ) : null}
                       </div>
