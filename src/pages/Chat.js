@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
 import { formatCurrency } from "../utils/format";
@@ -24,6 +25,7 @@ import EmojiMartPicker from "../components/EmojiMartPicker";
 
 export default function Chat() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const {
     conversations,
     conversationsStatus,
@@ -351,7 +353,7 @@ export default function Chat() {
         return;
       }
       const senderName = lastMessage?.sender?.fullName || "người dùng";
-      showToast("info", `Bạn có tin nhắn từ ${senderName}`);
+      showToast("info", `Bạn có tin nhắn mới từ ${senderName}`);
       triggerNotification(conversationId, senderName);
     });
   }, [conversations, currentUserId, metaById, selectedConversationId, triggerNotification]);
@@ -506,16 +508,16 @@ export default function Chat() {
     [messageContent, sendChatMessage]
   );
 
-  const handleEmojiSelect = useCallback(
-    (emoji) => {
-      if (!emoji) return;
-      const symbol = emoji.native || emoji.colons || emoji.shortcodes || "";
-      if (!symbol) return;
-      setMessageContent((prev) => `${prev}${symbol}`);
-      setIsEmojiPickerOpen(false);
-    },
-    []
-  );
+  const handleEmojiSelect = useCallback((emoji) => {
+    if (!emoji) return;
+    const symbol =
+      typeof emoji === "string"
+        ? emoji
+        : emoji.emoji || emoji.native || emoji.colons || emoji.shortcodes || "";
+    if (!symbol) return;
+    setMessageContent((prev) => `${prev}${symbol}`);
+    setIsEmojiPickerOpen(false);
+  }, []);
 
   const handleUploadImages = useCallback(
     (event) => {
@@ -578,13 +580,31 @@ export default function Chat() {
     [selectedConversation, currentUserId]
   );
 
-  const handleDeleteConversation = useCallback(() => {
-    if (!selectedConversationId) return;
-    const confirmed = window.confirm("Bạn có chắc muốn xóa đoạn chat này?");
-    if (!confirmed) return;
-    setIsInfoModalOpen(false);
-    dispatch(deleteConversation(selectedConversationId));
-  }, [dispatch, selectedConversationId, setIsInfoModalOpen]);
+  const handleDeleteConversation = useCallback(
+    (conversationId) => {
+      const targetId = conversationId || selectedConversationId;
+      if (!targetId) return;
+      const confirmed = window.confirm("Bạn có chắc muốn xóa đoạn chat này?");
+      if (!confirmed) return;
+      setIsInfoModalOpen(false);
+      dispatch(deleteConversation(targetId));
+    },
+    [dispatch, selectedConversationId]
+  );
+
+  const handleViewConversationInfo = useCallback(
+    (conversation) => {
+      if (!conversation) return;
+      const targetUser = resolvePartner(conversation, currentUserId);
+      const userId = targetUser?.userId || conversation?.tenant?.userId || conversation?.landlord?.userId;
+      if (!userId) {
+        showToast("info", "Không tìm thấy thông tin người dùng để hiển thị.");
+        return;
+      }
+      navigate("/users", { state: { highlightUserId: userId } });
+    },
+    [currentUserId, navigate]
+  );
 
   const landlordUser = selectedConversation?.landlord || null;
   const tenantUser = selectedConversation?.tenant || null;
@@ -770,48 +790,24 @@ export default function Chat() {
                     const landlordName = conversation?.landlord?.fullName || "—";
                     const fallbackName = participant?.fullName || tenantName || landlordName || "?";
                     return (
-                      <button
+                      <ConversationListItem
                         key={conversation.conversationId}
-                        type="button"
-                        onClick={() => handleSelectConversation(conversation.conversationId)}
-                        className={`w-full rounded-2xl border px-3 py-3 text-left shadow-sm transition ${
-                          isActive
-                            ? "border-amber-300 bg-amber-50/80 shadow-md"
-                            : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="relative h-12 w-12 flex-shrink-0">
-                            {participant?.avatarUrl ? (
-                              <img
-                                src={resolveAvatarUrl(participant.avatarUrl)}
-                                alt={participant?.fullName || "Avatar"}
-                                className="h-12 w-12 rounded-full border border-white object-cover shadow"
-                              />
-                            ) : (
-                              <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
-                                {getInitial(fallbackName)}
-                              </div>
-                            )}
-                            {unread ? (
-                              <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1 text-[11px] font-semibold text-white">
-                                {unread}
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="truncate text-sm font-semibold text-slate-800">
-                                {participant?.fullName || tenantName || landlordName}
-                              </p>
-                              <span className="whitespace-nowrap text-xs text-slate-500">
-                                {formatRelativeTime(lastActivity)}
-                              </span>
-                            </div>
-                            <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
-                          </div>
-                        </div>
-                      </button>
+                        participant={participant}
+                        fallbackName={fallbackName}
+                        tenantName={tenantName}
+                        landlordName={landlordName}
+                        lastActivity={lastActivity}
+                        preview={preview}
+                        unread={unread}
+                        isActive={isActive}
+                        onSelect={() => handleSelectConversation(conversation.conversationId)}
+                        onViewInfo={() => handleViewConversationInfo(conversation)}
+                        onDelete={() => handleDeleteConversation(conversation.conversationId)}
+                        isDeleting={
+                          deleteStatus === "loading" &&
+                          deletingConversationId === conversation.conversationId
+                        }
+                      />
                     );
                   })}
                 </div>
@@ -851,7 +847,11 @@ export default function Chat() {
                 partner={selectedConversation ? peerUser : selectedPeer}
                 property={property}
                 onViewInfo={() => setIsInfoModalOpen(true)}
-                onDelete={selectedConversation ? handleDeleteConversation : null}
+                onDelete={
+                  selectedConversation
+                    ? () => handleDeleteConversation(selectedConversation.conversationId)
+                    : null
+                }
                 isDeleting={
                   deleteStatus === "loading" &&
                   deletingConversationId === selectedConversationId
@@ -1001,10 +1001,173 @@ export default function Chat() {
   );
 }
 
+function ConversationListItem({
+  participant,
+  fallbackName,
+  tenantName,
+  landlordName,
+  lastActivity,
+  preview,
+  unread,
+  isActive,
+  onSelect,
+  onViewInfo,
+  onDelete,
+  isDeleting,
+}) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const itemRef = useRef(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return undefined;
+    const handleClickOutside = (event) => {
+      if (itemRef.current && !itemRef.current.contains(event.target)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setIsMenuOpen(false);
+    }
+  }, [isActive]);
+
+  const handleSelectConversation = () => {
+    setIsMenuOpen(false);
+    onSelect?.();
+  };
+
+  return (
+    <div
+      ref={itemRef}
+      className={`relative rounded-2xl border px-3 py-3 shadow-sm transition ${
+        isActive
+          ? "border-amber-300 bg-amber-50/80 shadow-md"
+          : "border-transparent bg-white hover:border-amber-200 hover:bg-amber-50/50"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={handleSelectConversation}
+        className="flex w-full items-start gap-3 pr-8 text-left"
+      >
+        <div className="relative h-12 w-12 flex-shrink-0">
+          {participant?.avatarUrl ? (
+            <img
+              src={resolveAvatarUrl(participant.avatarUrl)}
+              alt={participant?.fullName || "Avatar"}
+              className="h-12 w-12 rounded-full border border-white object-cover shadow"
+            />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white bg-amber-200 text-sm font-semibold text-amber-800 shadow">
+              {getInitial(fallbackName)}
+            </div>
+          )}
+          {unread ? (
+            <span className="absolute -top-1 -right-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1 text-[11px] font-semibold text-white">
+              {unread}
+            </span>
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="truncate text-sm font-semibold text-slate-800">
+              {participant?.fullName || tenantName || landlordName}
+            </p>
+            <span className="whitespace-nowrap text-xs text-slate-500">
+              {formatRelativeTime(lastActivity)}
+            </span>
+          </div>
+          <p className="mt-1 truncate text-xs text-slate-500">{preview}</p>
+        </div>
+      </button>
+
+      <div className="absolute right-1.5 top-1.5">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setIsMenuOpen((prev) => !prev);
+          }}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-transparent text-slate-400 transition hover:border-amber-200 hover:text-amber-600"
+        >
+          <span className="sr-only">Tùy chọn hội thoại</span>
+          <svg viewBox="0 0 24 24" className="h-5 w-5">
+            <circle cx="12" cy="5" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+            <circle cx="12" cy="19" r="1.5" fill="currentColor" />
+          </svg>
+        </button>
+
+        {isMenuOpen ? (
+          <div className="absolute right-0 top-10 z-10 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setIsMenuOpen(false);
+                onViewInfo?.();
+              }}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
+            >
+              <span>Xem thông tin…</span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4">
+                <path
+                  d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (isDeleting) return;
+                setIsMenuOpen(false);
+                onDelete?.();
+              }}
+              className={`mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2 text-left font-semibold ${
+                isDeleting
+                  ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                  : "text-red-600 hover:bg-red-50 hover:text-red-700"
+              }`}
+            >
+              <span>{isDeleting ? "Đang xóa..." : "Xóa đoạn chat"}</span>
+              <svg viewBox="0 0 24 24" className="h-4 w-4">
+                <path
+                  d="M6 7h12M10 7V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7m3 4v6m4-6v6"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+              </svg>
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ConversationHeader({ tenant, landlord, partner, property, onViewInfo, onDelete, isDeleting }) {
-  const avatarSource = partner?.avatarUrl || tenant?.avatarUrl || landlord?.avatarUrl;
-  const displayName = partner?.fullName || tenant?.fullName || landlord?.fullName || "Hội thoại";
-  const phoneNumber = partner?.phoneNumber || tenant?.phoneNumber || landlord?.phoneNumber || "—";
+  const avatarSource = tenant?.avatarUrl
+  const displayName =  tenant?.fullName || "Hội thoại";
+  const phoneNumber = tenant?.phoneNumber || "—";
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -1060,26 +1223,6 @@ function ConversationHeader({ tenant, landlord, partner, property, onViewInfo, o
           </button>
           {isMenuOpen ? (
             <div className="absolute right-0 top-12 z-20 w-48 rounded-2xl border border-amber-100 bg-white p-2 text-sm shadow-xl">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  onViewInfo?.();
-                }}
-                className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-slate-600 hover:bg-amber-50 hover:text-amber-700"
-              >
-                <span>Xem thông tin…</span>
-                <svg viewBox="0 0 24 24" className="h-4 w-4">
-                  <path
-                    d="M12 5v14m0-14C6.477 5 2 9.477 2 15M12 5c5.523 0 10 4.477 10 10"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                </svg>
-              </button>
               <button
                 type="button"
                 onClick={() => {

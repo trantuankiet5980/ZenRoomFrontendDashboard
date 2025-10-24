@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useLocation, useNavigate } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
 import UsersFilters from "./users/Filters";
@@ -23,6 +24,8 @@ const createInitialFilters = () => ({
 });
 
 export default function Users() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [filters, setFilters] = useState(createInitialFilters);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
@@ -38,6 +41,8 @@ export default function Users() {
   const [banModalOpen, setBanModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const incomingHighlightUserId = location.state?.highlightUserId;
+  const [highlightUserId, setHighlightUserId] = useState(null);
 
   const selectedUserName = useMemo(() => {
     if (!detailUser) return "người dùng";
@@ -59,6 +64,12 @@ export default function Users() {
   const deleteModalConfirmText = isDetailDeleted ? "Khôi phục tài khoản" : "Xoá tài khoản";
 
   const { fromDate, toDate, keyword, status: statusFilter, roles } = filters;
+
+  useEffect(() => {
+    if (!incomingHighlightUserId) return;
+    setHighlightUserId(incomingHighlightUserId);
+    navigate(location.pathname, { replace: true });
+  }, [incomingHighlightUserId, navigate, location.pathname]);
 
   useEffect(() => {
     if (fromDate && toDate) {
@@ -117,6 +128,25 @@ export default function Users() {
   const totalElements = data?.totalElements ?? 0;
 
   const loading = status === "loading";
+
+  useEffect(() => {
+    if (!highlightUserId || loading) return undefined;
+    if (typeof document === "undefined" || typeof window === "undefined") {
+      return undefined;
+    }
+    const row = document.querySelector(`[data-rowid="${highlightUserId}"]`);
+    if (row) {
+      row.scrollIntoView({ block: "center", behavior: "smooth" });
+      const timer = window.setTimeout(() => {
+        setHighlightUserId(null);
+      }, 2500);
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }
+    return undefined;
+  }, [highlightUserId, loading, users]);
+
   const pageInfo = useMemo(() => {
     if (!totalElements) return { from: 0, to: 0 };
     const from = page * size + 1;
@@ -385,6 +415,7 @@ export default function Users() {
             onView={handleView}
             onBan={handleBan}
             onDelete={handleDelete}
+            highlightId={highlightUserId}
           />
         </div>
       </PageSection>
