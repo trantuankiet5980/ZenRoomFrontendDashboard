@@ -57,6 +57,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         open={openSec.content}
         onToggle={() => onToggle("content")}
       >
+        <Item to="/chat" label="Nhắn tin" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/discount-codes" label="Discount Codes" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/reviews" label="Reviews" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/reports" label="Reports" labelCls={labelCls} onNavigate={onNavigate} />
