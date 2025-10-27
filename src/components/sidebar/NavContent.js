@@ -25,7 +25,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         <Item to="/users" label="Users" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/chat" label="Nhắn tin" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/roles" label="Roles" labelCls={labelCls} disabled />
-        <Item to="/user-logs" label="Logs" labelCls={labelCls} disabled />
+        <Item to="/user-logs" label="Logs" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
 
       {/* Bài đăng */}
