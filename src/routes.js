@@ -12,6 +12,7 @@ import DiscountCodes from "./pages/DiscountCodes";
 import Reviews from "./pages/Reviews";
 import Reports from "./pages/Reports";
 import Chat from "./pages/Chat";
+import UserLogs from "./pages/UserLogs";
 
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -41,6 +42,7 @@ const routes = [
           { path: "reviews", element: <Reviews /> },
           { path: "reports", element: <Reports /> },
           { path: "chat", element: <Chat /> },
+          { path: "user-logs", element: <UserLogs /> },
           { path: "profile", element: <Profile />}
         ],
       },
