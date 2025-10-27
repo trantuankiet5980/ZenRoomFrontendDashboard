@@ -9,6 +9,7 @@ export default function InvoiceTable({
   totalElements = 0,
   pageInfo = { from: 0, to: 0 },
   actionLoadingId,
+  highlightInvoiceId,
   onPageFirst,
   onPagePrev,
   onPageNext,
@@ -47,9 +48,14 @@ export default function InvoiceTable({
               const isRefunding = actionLoadingId === invoice.invoiceId;
               const booking = invoice.booking || {};
               const property = booking.property || {};
+              const isHighlighted = invoice.invoiceId === highlightInvoiceId;
 
               return (
-                <tr key={invoice.invoiceId} className="hover:bg-amber-50/40">
+                <tr
+                  key={invoice.invoiceId}
+                  data-invoice-row={invoice.invoiceId}
+                  className={`transition-colors ${isHighlighted ? "bg-amber-100/80 outline outline-2 outline-amber-300" : "bg-white"} hover:bg-amber-50/40`}
+                >
                   <td className="px-4 py-4 align-top">
                     <div className="space-y-1 text-sm text-slate-700">
                       <div className="font-semibold text-slate-800">{invoice.invoiceNo || invoice.invoiceId}</div>
