@@ -43,10 +43,14 @@ export default function NotificationsBell() {
 
   const goToNotif = (n) => {
     const url = n.redirectUrl || "/properties";
-    const m = url.match(/properties\/([0-9a-f-]+)/i);
-    const propertyId = m?.[1];
+    const propertyMatch = url.match(/properties\/([0-9a-f-]+)/i);
+    const invoiceMatch = url.match(/invoices\/([0-9a-f-]+)/i);
+    const propertyId = propertyMatch?.[1];
+    const invoiceId = invoiceMatch?.[1];
 
-    if (propertyId) {
+    if (invoiceId) {
+      navigate("/invoices", { state: { highlightInvoiceId: invoiceId } });
+    } else if (propertyId) {
       navigate("/properties", { state: { highlightId: propertyId } });
     } else {
       navigate(url.startsWith("/") ? url : "/");

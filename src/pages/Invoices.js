@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
 import RevenueChart from "../components/RevenueChart";
@@ -32,6 +33,11 @@ export default function Invoices() {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [refundTarget, setRefundTarget] = useState(null);
+  const [highlightRequest, setHighlightRequest] = useState(null);
+  const [activeHighlightId, setActiveHighlightId] = useState("");
+  const location = useLocation();
+  const scrollTimeoutRef = useRef(null);
+  const highlightTimeoutRef = useRef(null);
 
   const invoices = useMemo(() => data?.content ?? [], [data]);
   const totalPages = data?.totalPages ?? 0;
@@ -77,6 +83,13 @@ export default function Invoices() {
   useEffect(() => () => {
     dispatch(clearInvoicesError());
   }, [dispatch]);
+
+  useEffect(() => {
+    const stateHighlightId = location.state?.highlightInvoiceId;
+    if (stateHighlightId) {
+      setHighlightRequest({ id: stateHighlightId, timestamp: Date.now() });
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (!detailOpen || !selectedInvoiceId) return;
@@ -198,6 +211,48 @@ export default function Invoices() {
     setRefundModalOpen(true);
   };
 
+  useEffect(() => {
+    if (!highlightRequest?.id) return undefined;
+
+    const id = highlightRequest.id;
+    setActiveHighlightId(id);
+
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = window.setTimeout(() => {
+      const row = document.querySelector(`[data-invoice-row="${id}"]`);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 200);
+
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setActiveHighlightId("");
+    }, 4000);
+
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+      }
+    };
+  }, [highlightRequest, invoices]);
+
+  useEffect(() => () => {
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+  }, []);
+
   const refreshInvoices = useCallback(() => {
     const params = buildInvoiceQueryParams({ filters, page, size });
     dispatch(fetchInvoices(params));
@@ -307,11 +362,11 @@ export default function Invoices() {
           invoices={invoices}
           loading={loading}
           page={page}
-          size={size}
           totalPages={totalPages}
           totalElements={totalElements}
           pageInfo={pageInfo}
           actionLoadingId={actionLoadingId}
+          highlightInvoiceId={activeHighlightId}
           onPageFirst={handlePageFirst}
           onPagePrev={handlePagePrev}
           onPageNext={handlePageNext}
