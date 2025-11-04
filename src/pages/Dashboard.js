@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchOverview, fetchUserSummary, fetchRevenueSummary, fetchRecentBookings, fetchPostSummary } from "../redux/slices/statsSlice";
+import {
+  fetchOverview,
+  fetchUserSummary,
+  fetchRevenueSummary,
+  fetchRecentBookings,
+  fetchPostSummary,
+  fetchTopBookedProperties,
+} from "../redux/slices/statsSlice";
 import UserStatsChart from "../components/UserStatsChart";
 import RevenueChart from "../components/RevenueChart";
 import PostStatsChart from "../components/PostStatsChart";
+import TopBookedProperties from "../components/TopBookedProperties";
+import { formatTimeFirstDate } from "../utils/format"
 
 function StatCard({ title, value, hint }) {
   return (
@@ -50,7 +59,7 @@ function RecentBookings({ rows }) {
                   </span>
                 </td>
                 <td className="px-3 py-2 text-right">
-                  {b.createdAt ? new Date(b.createdAt).toLocaleString("vi-VN") : "—"}
+                  {formatTimeFirstDate(b.createdAt)}
                 </td>
               </tr>
             )) : (
@@ -73,6 +82,8 @@ export default function Dashboard() {
     revenueLoading = false,
     postSummary,
     postLoading = false,
+    topBookedProperties = [],
+    topBookedLoading = false,
     recentBookings = [],
     loading = false,
   } = useSelector((s) => s.stats || {});
@@ -95,6 +106,11 @@ export default function Dashboard() {
     year: now.getFullYear(),
     month: now.getMonth() + 1,
     day: now.getDate(),
+  });
+  const [topPeriod, setTopPeriod] = useState("MONTH");
+  const [topFilters, setTopFilters] = useState({
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
   });
 
   const userDaysInSelectedMonth = useMemo(() => {
@@ -210,6 +226,17 @@ export default function Dashboard() {
     dispatch(fetchPostSummary(params));
   }, [dispatch, postPeriod, postFilters.day, postFilters.month, postFilters.year, now]);
 
+  useEffect(() => {
+    const params = {};
+    const year = Number(topFilters.year) || now.getFullYear();
+    params.year = year;
+    if (topPeriod === "MONTH") {
+      const month = Number(topFilters.month) || now.getMonth() + 1;
+      params.month = month;
+    }
+    dispatch(fetchTopBookedProperties(params));
+  }, [dispatch, topPeriod, topFilters.month, topFilters.year, now]);
+
   const handleUserFilterChange = (patch) => {
     setUserFilters((prev) => ({ ...prev, ...patch }));
   };
@@ -218,6 +245,9 @@ export default function Dashboard() {
   };
   const handlePostFilterChange = (patch) => {
     setPostFilters((prev) => ({ ...prev, ...patch }));
+  };
+  const handleTopFilterChange = (patch) => {
+    setTopFilters((prev) => ({ ...prev, ...patch }));
   };
   const totalRevenue = Number(overview?.totalRevenue ?? 0);
 
@@ -281,6 +311,15 @@ export default function Dashboard() {
         onFilterChange={handlePostFilterChange}
         daysInMonth={postDaysInSelectedMonth}
         loading={postLoading}
+      />
+
+      <TopBookedProperties
+        data={topBookedProperties}
+        period={topPeriod}
+        filters={topFilters}
+        onPeriodChange={setTopPeriod}
+        onFilterChange={handleTopFilterChange}
+        loading={topBookedLoading}
       />
 
       <RecentBookings rows={recentBookings} />

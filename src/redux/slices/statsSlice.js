@@ -53,6 +53,19 @@ export const fetchPostSummary = createAsyncThunk(
   }
 );
 
+/** Top booked properties */
+export const fetchTopBookedProperties = createAsyncThunk(
+  "stats/topBookedProperties",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const { data } = await axiosInstance.get("/v1/admin/stats/bookings/top", { params });
+      return Array.isArray(data) ? data : [];
+    } catch (e) {
+      return rejectWithValue(e.response?.data || { message: "Load top booked properties failed" });
+    }
+  }
+);
+
 /** Recent bookings: [{ bookingId, tenantName, propertyTitle, totalPrice, bookingStatus, createdAt }] */
 export const fetchRecentBookings = createAsyncThunk(
   "stats/recentBookings",
@@ -109,6 +122,8 @@ const slice = createSlice({
       dailyBreakdown: [],
       monthlyBreakdown: [],
     },
+    topBookedProperties: [],
+    topBookedLoading: false,
     revenueLoading: false,
     postLoading: false,
     recentBookings: [],   // [{ bookingId, ... }]
@@ -148,6 +163,15 @@ const slice = createSlice({
     b.addCase(fetchPostSummary.rejected, (s,{payload})=>{
       s.postLoading = false;
       s.error = payload?.message || "Load properties failed";
+    });
+     b.addCase(fetchTopBookedProperties.pending, (s)=>{ s.topBookedLoading = true; });
+    b.addCase(fetchTopBookedProperties.fulfilled, (s,{payload})=>{
+      s.topBookedLoading = false;
+      s.topBookedProperties = Array.isArray(payload) ? payload : [];
+    });
+    b.addCase(fetchTopBookedProperties.rejected, (s,{payload})=>{
+      s.topBookedLoading = false;
+      s.error = payload?.message || "Load top booked properties failed";
     });
     b.addCase(fetchRecentBookings.fulfilled, (s,{payload})=>{ s.recentBookings = payload; });
   },
