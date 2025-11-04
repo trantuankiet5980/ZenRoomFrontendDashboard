@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatDateInput } from "../../utils/format";
 
 const STATUS_OPTIONS = [
   { value: "ALL", label: "Tất cả" },
@@ -175,9 +176,10 @@ export default function UsersFilters({
           Từ ngày
           <input
             type="date"
-            value={fromDate || ""}
+            value={formatDateInput(fromDate)}
             onChange={(event) => onDateChange("fromDate", event.target.value)}
             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+            max={formatDateInput(toDate) || undefined}
           />
         </label>
 
@@ -185,9 +187,10 @@ export default function UsersFilters({
           Đến ngày
           <input
             type="date"
-            value={toDate || ""}
+            value={formatDateInput(toDate)}
             onChange={(event) => onDateChange("toDate", event.target.value)}
             className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-600 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100"
+            min={formatDateInput(fromDate) || undefined}
           />
         </label>
 

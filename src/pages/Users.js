@@ -8,6 +8,7 @@ import UsersTable from "./users/Table";
 import UserDetailDrawer from "./users/DetailDrawer";
 import ConfirmModal from "./users/ConfirmModal";
 import { showToast } from "../utils/toast";
+import { formatDateInput } from "../utils/format";
 import {
   clearUsersError,
   fetchUsers,
@@ -15,13 +16,20 @@ import {
   updateUserById,
 } from "../redux/slices/usersSlice";
 
-const createInitialFilters = () => ({
-  keyword: "",
-  status: "ALL",
-  roles: [],
-  fromDate: "",
-  toDate: "",
-});
+const createInitialFilters = () => {
+  const today = new Date();
+  const toDate = formatDateInput(today);
+  const monthAgo = new Date(today);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+  return {
+    keyword: "",
+    status: "ALL",
+    roles: [],
+    fromDate: formatDateInput(monthAgo),
+    toDate,
+  };
+};
 
 export default function Users() {
   const location = useLocation();
@@ -76,7 +84,7 @@ export default function Users() {
       const from = new Date(fromDate);
       const to = new Date(toDate);
       if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime()) && from > to) {
-        setDateError("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc.");
+        setDateError("Thời gian bắt đầu phải nhỏ hơn hoặc bằng thời gian kết thúc.");
         return;
       }
     }
@@ -174,6 +182,31 @@ export default function Users() {
   const handleUpdateFilters = (patch) => {
     setPage(0);
     setFilters((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleDateChange = (field, value) => {
+    setPage(0);
+    setFilters((prev) => {
+      const nextValue = value;
+
+      if (field === "fromDate") {
+        const next = { ...prev, fromDate: nextValue };
+        if (nextValue && prev.toDate && nextValue > prev.toDate) {
+          next.toDate = nextValue;
+        }
+        return next;
+      }
+
+      if (field === "toDate") {
+        const next = { ...prev, toDate: nextValue };
+        if (nextValue && prev.fromDate && nextValue < prev.fromDate) {
+          next.fromDate = nextValue;
+        }
+        return next;
+      }
+
+      return { ...prev, [field]: nextValue };
+    });
   };
 
   const handleResetFilters = () => {
@@ -385,7 +418,7 @@ export default function Users() {
             onKeywordChange={(value) => handleUpdateFilters({ keyword: value })}
             onStatusChange={(value) => handleUpdateFilters({ status: value })}
             onRolesChange={(value) => handleUpdateFilters({ roles: value })}
-            onDateChange={(field, value) => handleUpdateFilters({ [field]: value })}
+            onDateChange={handleDateChange}
             onSizeChange={handleSizeChange}
             onReset={handleResetFilters}
           />
