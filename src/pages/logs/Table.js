@@ -1,4 +1,4 @@
-import { formatDateTime } from "../../utils/format";
+import { formatTimeFirstDate } from "../../utils/format";
 
 export default function UserLogsTable({
   logs = [],
@@ -38,7 +38,7 @@ export default function UserLogsTable({
             {logs.map((log) => (
               <tr key={log.logId} className="hover:bg-amber-50/40">
                 <td className="whitespace-nowrap px-4 py-3 align-top text-sm text-slate-600">
-                  {formatDateTime(log.createdAt)}
+                  {formatTimeFirstDate(log.createdAt)}
                 </td>
                 <td className="px-4 py-3 align-top text-sm text-slate-700">
                   {log.action || "—"}

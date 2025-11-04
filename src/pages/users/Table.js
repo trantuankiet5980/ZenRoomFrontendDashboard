@@ -1,5 +1,6 @@
 import StatusBadge from "../../components/StatusBadge";
 import { resolveAvatarUrl } from "../../utils/cdn";
+import { formatTimeFirstDate } from "../../utils/format";
 
 const STATUS_HINTS = {
   ACTIVE: "Tài khoản đang hoạt động",
@@ -119,23 +120,23 @@ export default function UsersTable({
                       </span>
                       {user.deleteRequestedAt && (
                         <span className="text-[11px] text-slate-500">
-                          Yêu cầu xoá: {formatDateTime(user.deleteRequestedAt)}
+                          Yêu cầu xoá: {formatTimeFirstDate(user.deleteRequestedAt)}
                         </span>
                       )}
                       {user.deleteEffectiveAt && (
                         <span className="text-[11px] text-slate-500">
-                          Xoá vào: {formatDateTime(user.deleteEffectiveAt)}
+                          Xoá vào: {formatTimeFirstDate(user.deleteEffectiveAt)}
                         </span>
                       )}
                     </div>
                   </td>
 
                   <td className="px-4 py-4 align-top whitespace-nowrap text-sm text-slate-600">
-                    {formatDateTime(user.createdAt)}
+                    {formatTimeFirstDate(user.createdAt)}
                   </td>
 
                   <td className="px-4 py-4 align-top whitespace-nowrap text-sm text-slate-600">
-                    {formatDateTime(user.lastLogin)}
+                    {formatTimeFirstDate(user.lastLogin)}
                   </td>
 
                   <td className="px-4 py-4 align-top">
