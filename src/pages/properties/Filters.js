@@ -6,11 +6,20 @@ const TABS = [
 ];
 
 export default function Filters({
-  kw, onKwChange,
-  size, onSizeChange,
-  status, onStatusChange,
-  createdFrom, createdTo,
-  onCreatedFromChange, onCreatedToChange,
+  kw,
+  onKwChange,
+  size,
+  onSizeChange,
+  status,
+  onStatusChange,
+  createdFrom,
+  createdTo,
+  onCreatedFromChange,
+  onCreatedToChange,
+  priceMin,
+  priceMax,
+  onPriceMinChange,
+  onPriceMaxChange,
 }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -81,6 +90,33 @@ export default function Filters({
               onChange={(e) => onCreatedToChange(e.target.value)}
               className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-inner focus:border-amber-300 focus:ring-4 focus:ring-amber-200/60"
               min={createdFrom || undefined}
+            />
+          </label>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="grid gap-1 text-sm text-slate-600">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Giá từ</span>
+            <input
+              type="number"
+              min="0"
+              step="100000"
+              value={priceMin}
+              onChange={(e) => onPriceMinChange(e.target.value)}
+              placeholder="Từ giá"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-inner focus:border-amber-300 focus:ring-4 focus:ring-amber-200/60"
+            />
+          </label>
+          <label className="grid gap-1 text-sm text-slate-600">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Giá đến</span>
+            <input
+              type="number"
+              min="0"
+              step="100000"
+              value={priceMax}
+              onChange={(e) => onPriceMaxChange(e.target.value)}
+              placeholder="Đến giá"
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-inner focus:border-amber-300 focus:ring-4 focus:ring-amber-200/60"
             />
           </label>
         </div>

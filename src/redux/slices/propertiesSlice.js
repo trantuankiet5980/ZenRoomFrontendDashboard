@@ -7,7 +7,16 @@ export const fetchProperties = createAsyncThunk(
   "properties/fetchList",
   async (params, { rejectWithValue }) => {
     try {
-      const { page = 0, size = 10, status, q, createdFrom, createdTo } = params || {};
+      const {
+        page = 0,
+        size = 10,
+        status,
+        q,
+        createdFrom,
+        createdTo,
+        priceMin,
+        priceMax,
+      } = params || {};
       const { data } = await axiosInstance.get("/v1/properties", {
         params: {
           page, size,
@@ -16,6 +25,8 @@ export const fetchProperties = createAsyncThunk(
           ...(q ? { q } : {}),
           ...(createdFrom ? { createdFrom } : {}),
           ...(createdTo ? { createdTo } : {}),
+          ...(priceMin !== undefined && priceMin !== null && priceMin !== "" ? { priceMin } : {}),
+          ...(priceMax !== undefined && priceMax !== null && priceMax !== "" ? { priceMax } : {}),
           sort: "createdAt,DESC",
         },
       });
@@ -99,6 +110,8 @@ const slice = createSlice({
     q: "",
     createdFrom: defaultCreatedFrom,
     createdTo: defaultCreatedTo,
+    priceMin: "",
+    priceMax: "",
 
     loading: false,
     error: null,
@@ -117,6 +130,8 @@ const slice = createSlice({
     setSize(state, { payload }) { state.size = payload; state.page = 0; },
     setCreatedFrom(state, { payload }) { state.createdFrom = payload; state.page = 0; },
     setCreatedTo(state, { payload }) { state.createdTo = payload; state.page = 0; },
+    setPriceMin(state, { payload }) { state.priceMin = payload; state.page = 0; },
+    setPriceMax(state, { payload }) { state.priceMax = payload; state.page = 0; },
     clearError(state) { state.error = null; },
     clearDetail(state) { state.detail = null; },
   },
@@ -181,6 +196,15 @@ const slice = createSlice({
 });
 
 export const {
-  setStatus, setQ, setPage, setSize, setCreatedFrom, setCreatedTo, clearError, clearDetail
+  setStatus,
+  setQ,
+  setPage,
+  setSize,
+  setCreatedFrom,
+  setCreatedTo,
+  setPriceMin,
+  setPriceMax,
+  clearError,
+  clearDetail
 } = slice.actions;
 export default slice.reducer;
