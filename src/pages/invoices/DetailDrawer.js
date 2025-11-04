@@ -136,12 +136,18 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-slate-700">Dòng thời gian</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoCard label="Phát hành" value={formatTimeFirstDate(invoice.issuedAt)} />
-                  <InfoCard label="Đến hạn" value={formatTimeFirstDate(invoice.dueAt)} />
-                  <InfoCard label="Thanh toán" value={formatTimeFirstDate(invoice.paidAt)} />
-                  <InfoCard label="Hủy" value={formatTimeFirstDate(invoice.cancelledAt)} />
-                  <InfoCard label="Yêu cầu hoàn" value={formatTimeFirstDate(invoice.refundRequestedAt)} />
-                  <InfoCard label="Hoàn tiền" value={formatTimeFirstDate(invoice.refundConfirmedAt)} />
+                  {[
+                    { label: "Phát hành", value: invoice.issuedAt },
+                    { label: "Đến hạn", value: invoice.dueAt },
+                    { label: "Thanh toán", value: invoice.paidAt },
+                    { label: "Hủy", value: invoice.cancelledAt },
+                    { label: "Yêu cầu hoàn", value: invoice.refundRequestedAt },
+                    { label: "Hoàn tiền", value: invoice.refundConfirmedAt },
+                  ]
+                    .filter(({ value }) => value != null)
+                    .map(({ label, value }) => (
+                      <InfoCard key={label} label={label} value={formatTimeFirstDate(value)} />
+                    ))}
                 </div>
               </section>
             </div>

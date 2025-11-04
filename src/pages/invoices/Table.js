@@ -61,7 +61,7 @@ export default function InvoiceTable({
                 { label: "Hủy", value: invoice.cancelledAt },
                 { label: "Yêu cầu hoàn", value: invoice.refundRequestedAt },
                 { label: "Hoàn tiền", value: invoice.refundConfirmedAt },
-              ];
+              ].filter(({ value }) => value != null);
 
               return (
                 <tr
