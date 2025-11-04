@@ -11,13 +11,20 @@ import ConfirmModal from "./users/ConfirmModal";
 import { fetchInvoices, refundInvoice, clearInvoicesError } from "../redux/slices/invoicesSlice";
 import { fetchRevenueSummary, fetchOverview } from "../redux/slices/statsSlice";
 import { showToast } from "../utils/toast";
-import { formatCurrency } from "../utils/format";
+import { formatCurrency, formatDateInput } from "../utils/format";
 
-const createInitialFilters = () => ({
-  status: "ALL",
-  fromDate: "",
-  toDate: "",
-});
+const createInitialFilters = () => {
+  const today = new Date();
+  const toDate = formatDateInput(today);
+  const monthAgo = new Date(today);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+  return {
+    status: "ALL",
+    fromDate: formatDateInput(monthAgo),
+    toDate,
+  };
+};
 
 export default function Invoices() {
   const dispatch = useDispatch();
@@ -173,7 +180,28 @@ export default function Invoices() {
   };
 
   const handleDateChange = (field, value) => {
-    handleUpdateFilters({ [field]: value });
+    setPage(0);
+    setFilters((prev) => {
+      const nextValue = value;
+
+      if (field === "fromDate") {
+        const next = { ...prev, fromDate: nextValue };
+        if (nextValue && prev.toDate && nextValue > prev.toDate) {
+          next.toDate = nextValue;
+        }
+        return next;
+      }
+
+      if (field === "toDate") {
+        const next = { ...prev, toDate: nextValue };
+        if (nextValue && prev.fromDate && nextValue < prev.fromDate) {
+          next.fromDate = nextValue;
+        }
+        return next;
+      }
+
+      return { ...prev, [field]: nextValue };
+    });
   };
 
   const handleResetFilters = () => {
