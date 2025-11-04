@@ -2,9 +2,19 @@ import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  fetchProperties, setStatus, setQ, setPage, setSize, setCreatedFrom, setCreatedTo,
-  fetchPropertyById, clearDetail,
-  updatePropertyStatus, deleteProperty,
+  fetchProperties,
+  setStatus,
+  setQ,
+  setPage,
+  setSize,
+  setCreatedFrom,
+  setCreatedTo,
+  setPriceMin,
+  setPriceMax,
+  fetchPropertyById,
+  clearDetail,
+  updatePropertyStatus,
+  deleteProperty,
 } from "../../redux/slices/propertiesSlice";
 import Filters from "./Filters";
 import PropertiesTable from "./Table";
@@ -17,14 +27,35 @@ export default function Properties() {
   const dispatch = useDispatch();
   const {
     items, page, size, totalPages, totalElements,
-    status, q, createdFrom, createdTo, loading,
+    status,
+    q,
+    createdFrom,
+    createdTo,
+    priceMin,
+    priceMax,
+    loading,
     detail, detailLoading, actionLoadingId
   } = useSelector(s => s.properties);
 
   // fetch list khi params đổi
   useEffect(() => {
-    dispatch(fetchProperties({ page, size, status, q, createdFrom, createdTo }));
-  }, [dispatch, page, size, status, q, createdFrom, createdTo]);
+    const min = priceMin === "" ? undefined : Number(priceMin);
+    const max = priceMax === "" ? undefined : Number(priceMax);
+    const [fromPrice, toPrice] =
+      min !== undefined && max !== undefined && min > max
+        ? [max, min]
+        : [min, max];
+    dispatch(fetchProperties({
+      page,
+      size,
+      status,
+      q,
+      createdFrom,
+      createdTo,
+      priceMin: fromPrice,
+      priceMax: toPrice,
+    }));
+  }, [dispatch, page, size, status, q, createdFrom, createdTo, priceMin, priceMax]);
 
   // debounce search local
   const [kw, setKw] = useState(q || "");
@@ -111,6 +142,23 @@ export default function Properties() {
     }
   };
 
+  const sanitizePriceInput = (value) => {
+    if (value === "") return "";
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < 0) return "";
+    return String(Math.floor(num));
+  };
+
+  const handlePriceMinChange = (value) => {
+    const sanitized = sanitizePriceInput(value);
+    dispatch(setPriceMin(sanitized));
+  };
+
+  const handlePriceMaxChange = (value) => {
+    const sanitized = sanitizePriceInput(value);
+    dispatch(setPriceMax(sanitized));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -144,6 +192,10 @@ export default function Properties() {
         createdTo={createdTo}
         onCreatedFromChange={handleCreatedFromChange}
         onCreatedToChange={handleCreatedToChange}
+        priceMin={priceMin}
+        priceMax={priceMax}
+        onPriceMinChange={handlePriceMinChange}
+        onPriceMaxChange={handlePriceMaxChange}
       />
 
       {/* Table */}
