@@ -30,7 +30,7 @@ export default function useNotificationsSocket() {
       connectHeaders: {
         Authorization: `Bearer ${accessToken}`,
       },
-      debug: (str) => console.log("[STOMP]", str), // tắt log; cần debug thì console.log
+      // debug: (str) => console.log("[STOMP]", str), // tắt log; cần debug thì console.log
       onConnect: () => {
         dispatch(wsConnected());
 

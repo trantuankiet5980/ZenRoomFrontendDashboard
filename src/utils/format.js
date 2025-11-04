@@ -19,6 +19,15 @@ export function formatDateTime(value) {
   return date.toLocaleString("vi-VN", { hour12: false });
 }
 
+export function formatTimeFirstDate(value) {
+  if (!value) return "-";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  const time = date.toLocaleTimeString("vi-VN", { hour12: false });
+  const day = date.toLocaleDateString("vi-VN");
+  return `${day} ${time} `;
+}
+
 export function formatDateInput(value) {
   if (!value) return "";
   if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {

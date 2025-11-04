@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { getInvoiceStatusMeta } from "./constants";
-import { formatCurrency, formatDate, formatDateTime } from "../../utils/format";
+import { formatCurrency, formatDate, formatTimeFirstDate } from "../../utils/format";
 
 export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
   useEffect(() => {
@@ -62,6 +62,9 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
                       {statusMeta.label}
                     </span>
                     <div className="text-xs text-slate-500 max-w-xs sm:text-right">{statusMeta.description}</div>
+                    {invoice.cancellationReason ? (
+                      <div className="text-xs text-rose-500">Lý do hủy: {invoice.cancellationReason}</div>
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -69,10 +72,17 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-slate-700">Tổng quan thanh toán</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoCard label="Tổng tiền" value={formatCurrency(invoice.total)} hint="Đã bao gồm thuế và phí" />
-                  <InfoCard label="Thuế" value={formatCurrency(invoice.tax)} />
+                  <InfoCard label="Tổng tiền" value={formatCurrency(invoice.totalPrice ?? invoice.total)} hint="Đã bao gồm thuế và phí" />
+                  <InfoCard
+                    label="Phí hủy"
+                    value={invoice.cancellationFee == null ? "-" : formatCurrency(invoice.cancellationFee)}
+                    variant="muted"
+                  />
+                  <InfoCard
+                    label="Số tiền hoàn"
+                    value={invoice.refundableAmount == null ? "-" : formatCurrency(invoice.refundableAmount)}
+                  />
                   <InfoCard label="Giảm giá" value={formatCurrency(invoice.discount)} variant="muted" />
-                  <InfoCard label="Còn phải thu" value={formatCurrency(invoice.dueAmount)} variant="warning" />
                 </div>
               </section>
 
@@ -81,7 +91,7 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
                 <div className="space-y-2 text-sm text-slate-600">
                   <InfoRow label="Phương thức" value={invoice.paymentMethod || "—"} />
                   <InfoRow label="Mã tham chiếu" value={invoice.paymentRef || "—"} copyable />
-                  <InfoRow label="Thanh toán lúc" value={formatDateTime(invoice.paidAt)} />
+                  <InfoRow label="Thanh toán lúc" value={formatTimeFirstDate(invoice.paidAt)} />
                 </div>
               </section>
 
@@ -126,14 +136,12 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
               <section className="space-y-3">
                 <h3 className="text-sm font-semibold text-slate-700">Dòng thời gian</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <InfoCard label="Phát hành" value={formatDateTime(invoice.issuedAt)} />
-                  <InfoCard label="Đến hạn" value={formatDateTime(invoice.dueAt)} />
-                  <InfoCard label="Tạo lúc" value={formatDateTime(invoice.createdAt)} />
-                  <InfoCard label="Cập nhật" value={formatDateTime(invoice.updatedAt)} />
-                  {invoice.paidAt ? <InfoCard label="Thanh toán" value={formatDateTime(invoice.paidAt)} /> : null}
-                  {invoice.refundConfirmedAt ? (
-                    <InfoCard label="Hoàn tiền" value={formatDateTime(invoice.refundConfirmedAt)} />
-                  ) : null}
+                  <InfoCard label="Phát hành" value={formatTimeFirstDate(invoice.issuedAt)} />
+                  <InfoCard label="Đến hạn" value={formatTimeFirstDate(invoice.dueAt)} />
+                  <InfoCard label="Thanh toán" value={formatTimeFirstDate(invoice.paidAt)} />
+                  <InfoCard label="Hủy" value={formatTimeFirstDate(invoice.cancelledAt)} />
+                  <InfoCard label="Yêu cầu hoàn" value={formatTimeFirstDate(invoice.refundRequestedAt)} />
+                  <InfoCard label="Hoàn tiền" value={formatTimeFirstDate(invoice.refundConfirmedAt)} />
                 </div>
               </section>
             </div>
