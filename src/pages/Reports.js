@@ -1,71 +1,174 @@
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import PageShell from "../components/PageShell";
 import PageSection from "../components/PageSection";
-import EmptyState from "../components/EmptyState";
+import ReportFilters from "./reports/Filters";
+import ReportsTable from "./reports/Table";
+import { formatDateInput } from "../utils/format";
+import { showToast } from "../utils/toast";
+import { fetchReports, clearReportsError } from "../redux/slices/reportsSlice";
 
-const reportTemplates = [
-  {
-    key: "overview",
-    title: "Báo cáo tổng quan",
-    description: "Tổng hợp KPI chính của hệ thống theo tuần/tháng.",
-  },
-  {
-    key: "finance",
-    title: "Báo cáo tài chính",
-    description: "Chi tiết doanh thu, công nợ và chi phí vận hành.",
-  },
-  {
-    key: "inventory",
-    title: "Báo cáo tồn kho",
-    description: "Theo dõi tình trạng phòng trống và hiệu suất sử dụng.",
-  },
-];
+const createInitialFilters = () => {
+  const today = new Date();
+  const toDate = formatDateInput(today);
+  const monthAgo = new Date(today);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
 
+  return {
+    fromDate: formatDateInput(monthAgo),
+    toDate,
+  };
+};
 
 export default function Reports() {
-    return (
+    const dispatch = useDispatch();
+  const { data, status, error } = useSelector((state) => state.reports);
+  const [filters, setFilters] = useState(createInitialFilters);
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(20);
+  const [sortDirection, setSortDirection] = useState("DESC");
+  const [dateError, setDateError] = useState("");
+
+  const { fromDate, toDate } = filters;
+  const loading = status === "loading";
+
+  useEffect(() => {
+    if (fromDate && toDate) {
+      const from = new Date(fromDate);
+      const to = new Date(toDate);
+      if (!Number.isNaN(from.getTime()) && !Number.isNaN(to.getTime()) && from > to) {
+        setDateError("Thời gian bắt đầu phải nhỏ hơn hoặc bằng thời gian kết thúc.");
+        return;
+      }
+    }
+    setDateError("");
+  }, [fromDate, toDate]);
+
+  useEffect(() => {
+    if (dateError) return undefined;
+
+    const params = {
+      page,
+      size,
+      sort: sortDirection,
+    };
+
+    if (fromDate) {
+      params.fromDate = formatDateInput(fromDate);
+    }
+    if (toDate) {
+      params.toDate = formatDateInput(toDate);
+    }
+
+    const promise = dispatch(fetchReports(params));
+    return () => {
+      promise.abort?.();
+    };
+  }, [dispatch, page, size, sortDirection, fromDate, toDate, dateError]);
+
+  useEffect(() => {
+    if (status === "failed" && error) {
+      showToast("error", error);
+    }
+  }, [status, error]);
+
+  useEffect(() => () => {
+    dispatch(clearReportsError());
+  }, [dispatch]);
+
+  const reports = useMemo(() => data.content ?? [], [data]);
+  const totalPages = data.totalPages ?? 0;
+  const totalElements = data.totalElements ?? 0;
+
+  const pageInfo = useMemo(() => {
+    if (!totalElements) return { from: 0, to: 0 };
+    const from = page * size + 1;
+    const to = Math.min((page + 1) * size, totalElements);
+    return { from, to };
+  }, [page, size, totalElements]);
+
+  const handleUpdateFilters = (key, value) => {
+    setPage(0);
+    setFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleResetFilters = () => {
+    setPage(0);
+    setSize(20);
+    setSortDirection("DESC");
+    setFilters(createInitialFilters());
+  };
+
+  const handleSizeChange = (value) => {
+    setPage(0);
+    setSize(value);
+  };
+
+  const handleToggleSort = () => {
+    setPage(0);
+    setSortDirection((prev) => (prev === "ASC" ? "DESC" : "ASC"));
+  };
+
+  const handlePageFirst = () => {
+    if (page <= 0) return;
+    setPage(0);
+  };
+
+  const handlePagePrev = () => {
+    if (page <= 0) return;
+    setPage((prev) => Math.max(0, prev - 1));
+  };
+
+  const handlePageNext = () => {
+    if (page >= totalPages - 1) return;
+    setPage((prev) => Math.min(totalPages - 1, prev + 1));
+  };
+
+  const handlePageLast = () => {
+    if (page >= totalPages - 1) return;
+    setPage(Math.max(totalPages - 1, 0));
+  };
+
+  return (
     <PageShell
-      title="Báo cáo & phân tích"
-      description="Tạo và tải về các báo cáo giúp bạn theo dõi hiệu quả kinh doanh."
-      actions={(
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-xl bg-brandBtn px-4 py-2 text-sm font-semibold text-slate-900 shadow-brand transition hover:brightness-105 disabled:opacity-50"
-          disabled
-        >
-          Xuất báo cáo
-        </button>
-      )}
+      title="Báo cáo bài đăng"
+      description="Theo dõi các báo cáo vi phạm được gửi bởi người dùng."
     >
-      <PageSection
-        title="Mẫu báo cáo đề xuất"
-        description="Chọn mẫu báo cáo phù hợp nhu cầu để xuất dữ liệu nhanh chóng."
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {reportTemplates.map((item) => (
-            <div key={item.key} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-              <div>
-                <div className="text-base font-semibold text-slate-800">{item.title}</div>
-                <p className="mt-1 text-sm text-slate-500">{item.description}</p>
-              </div>
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-60"
-                disabled
-              >
-                Chọn mẫu
-              </button>
-            </div>
-          ))}
-        </div>
+      <PageSection title="Bộ lọc" description="Lọc báo cáo theo khoảng thời gian và số lượng hiển thị.">
+        <ReportFilters
+          fromDate={fromDate}
+          toDate={toDate}
+          size={size}
+          dateError={dateError}
+          onDateChange={handleUpdateFilters}
+          onSizeChange={handleSizeChange}
+          onReset={handleResetFilters}
+        />
       </PageSection>
 
       <PageSection
-        title="Lịch sử báo cáo"
-        description="Danh sách các báo cáo đã được tạo và thời điểm tải xuống."
+        title="Danh sách báo cáo"
+        description="Danh sách các bài đăng bị người dùng báo cáo."
       >
-        <EmptyState
-          title="Chưa có báo cáo nào được tạo"
-          description="Sau khi bạn xuất báo cáo, lịch sử tải xuống sẽ xuất hiện tại đây để tiện quản lý."
+        {error && status === "failed" ? (
+          <div className="mb-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {error}
+          </div>
+        ) : null}
+
+        <ReportsTable
+          reports={reports}
+          loading={loading}
+          page={page}
+          totalPages={totalPages}
+          totalElements={totalElements}
+          pageInfo={pageInfo}
+          sortDirection={sortDirection}
+          onToggleSort={handleToggleSort}
+          onPageFirst={handlePageFirst}
+          onPagePrev={handlePagePrev}
+          onPageNext={handlePageNext}
+          onPageLast={handlePageLast}
         />
       </PageSection>
     </PageShell>
