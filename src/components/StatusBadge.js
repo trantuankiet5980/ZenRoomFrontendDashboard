@@ -20,7 +20,7 @@ export default function StatusBadge({ status }) {
     AVAILABLE: "Đang hoạt động",
     UNAVAILABLE: "Tạm dừng",
     ACTIVE: "Đang hoạt động",
-    BANNED: "Đã cấm",
+    BANNED: "Đã chặn",
     DELETED: "Đã xoá",
     PENDING_DELETE: "Chờ xoá",
   };

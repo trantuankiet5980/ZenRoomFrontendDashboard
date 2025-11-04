@@ -17,7 +17,6 @@ export default function Filters({
       <div className="grid gap-5">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
           <label className="grid gap-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Thanh tìm kiếm</span>
             <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 focus-within:border-amber-300 focus-within:ring-4 focus-within:ring-amber-200/60">
               <svg className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fillRule="evenodd" d="M8.5 3a5.5 5.5 0 0 1 4.356 8.815l3.665 3.664a.75.75 0 1 1-1.06 1.06l-3.664-3.665A5.5 5.5 0 1 1 8.5 3Zm0 1.5a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z" clipRule="evenodd" />

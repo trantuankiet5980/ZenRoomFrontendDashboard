@@ -52,11 +52,11 @@ export default function Users() {
   const detailStatus = detailUser?.status;
   const isDetailBanned = detailStatus === "BANNED";
   const isDetailDeleted = detailStatus === "DELETED";
-  const banModalTitle = isDetailBanned ? "Xác nhận hủy cấm người dùng" : "Xác nhận cấm người dùng";
+  const banModalTitle = isDetailBanned ? "Xác nhận hủy chặn người dùng" : "Xác nhận chặn người dùng";
   const banModalDescription = isDetailBanned
-    ? `Bạn có chắc chắn muốn hủy cấm ${selectedUserName}? Tài khoản sẽ hoạt động trở lại sau khi hủy cấm.`
-    : `Bạn có chắc chắn muốn cấm ${selectedUserName}? Người dùng sẽ không thể đăng nhập sau khi bị cấm.`;
-  const banModalConfirmText = isDetailBanned ? "Hủy cấm" : "Cấm người dùng";
+    ? `Bạn có chắc chắn muốn hủy chặn ${selectedUserName}? Tài khoản sẽ hoạt động trở lại sau khi hủy chặn.`
+    : `Bạn có chắc chắn muốn chặn ${selectedUserName}? Người dùng sẽ không thể đăng nhập sau khi bị chặn.`;
+  const banModalConfirmText = isDetailBanned ? "Hủy chặn" : "chặn người dùng";
   const deleteModalTitle = isDetailDeleted ? "Xác nhận khôi phục tài khoản" : "Xác nhận xoá tài khoản";
   const deleteModalDescription = isDetailDeleted
     ? `Bạn có chắc chắn muốn khôi phục tài khoản của ${selectedUserName}? Tài khoản sẽ được mở lại ngay sau khi khôi phục.`
@@ -292,14 +292,14 @@ export default function Users() {
       }));
       showToast(
         "success",
-        targetStatus === "BANNED" ? "Đã cấm người dùng thành công." : "Đã hủy cấm người dùng thành công."
+        targetStatus === "BANNED" ? "Đã chặn người dùng thành công." : "Đã hủy chặn người dùng thành công."
       );
       refreshUsers();
       setBanModalOpen(false);
     } catch (error) {
       const fallbackMessage = isCurrentlyBanned
-        ? "Không thể hủy cấm người dùng."
-        : "Không thể cấm người dùng.";
+        ? "Không thể hủy chặn người dùng."
+        : "Không thể chặn người dùng.";
       showToast("error", error || fallbackMessage);
     } finally {
       setActionLoading(false);

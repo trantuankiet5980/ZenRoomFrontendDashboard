@@ -188,9 +188,4 @@ function formatCurrency(n) {
   try { return new Intl.NumberFormat("vi-VN",{ style:"currency", currency:"VND", maximumFractionDigits:0 }).format(n); }
   catch { return `${n}`; }
 }
-function formatDateTime(s) {
-  if (!s) return "—";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleString("vi-VN");
-}
+

@@ -17,6 +17,7 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
   const statusMeta = getInvoiceStatusMeta(invoice?.status);
   const booking = invoice?.booking ?? {};
   const property = booking.property ?? {};
+  const showRefundInfo = invoice?.status === "REFUND_PENDING";
 
   return (
     <div className="fixed inset-0 z-50 flex">
@@ -73,15 +74,19 @@ export default function InvoiceDetailDrawer({ open, invoice, onClose }) {
                 <h3 className="text-sm font-semibold text-slate-700">Tổng quan thanh toán</h3>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <InfoCard label="Tổng tiền" value={formatCurrency(invoice.totalPrice ?? invoice.total)} hint="Đã bao gồm thuế và phí" />
-                  <InfoCard
-                    label="Phí hủy"
-                    value={invoice.cancellationFee == null ? "-" : formatCurrency(invoice.cancellationFee)}
-                    variant="muted"
-                  />
-                  <InfoCard
-                    label="Số tiền hoàn"
-                    value={invoice.refundableAmount == null ? "-" : formatCurrency(invoice.refundableAmount)}
-                  />
+                  {showRefundInfo ? (
+                    <>
+                      <InfoCard
+                        label="Phí hủy"
+                        value={invoice.cancellationFee == null ? "-" : formatCurrency(invoice.cancellationFee)}
+                        variant="muted"
+                      />
+                      <InfoCard
+                        label="Số tiền hoàn"
+                        value={invoice.refundableAmount == null ? "-" : formatCurrency(invoice.refundableAmount)}
+                      />
+                    </>
+                  ) : null}
                   <InfoCard label="Giảm giá" value={formatCurrency(invoice.discount)} variant="muted" />
                 </div>
               </section>
