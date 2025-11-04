@@ -8,6 +8,7 @@ import invoicesReducer from "./slices/invoicesSlice";
 import discountCodesReducer from "./slices/discountCodesSlice";
 import chatReducer from "./slices/chatSlice";
 import userLogsReducer from "./slices/userLogsSlice";
+import reportsReducer from "./slices/reportsSlice";
 
 const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ const store = configureStore({
     discountCodes: discountCodesReducer,
     chat: chatReducer,
     userLogs: userLogsReducer,
+    reports: reportsReducer,
   },
 });
 
