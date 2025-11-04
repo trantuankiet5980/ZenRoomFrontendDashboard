@@ -136,7 +136,6 @@ export default function Profile() {
                   </button>
                 )}
               </div>
-              <p className="text-xs text-slate-500">Hỗ trợ ảnh ≤ 5MB. Sau khi tải lên thành công, ảnh sẽ lưu trên S3.</p>
             </div>
           </div>
 

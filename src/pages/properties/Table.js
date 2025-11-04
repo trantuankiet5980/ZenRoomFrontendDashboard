@@ -1,5 +1,6 @@
 import StatusBadge from "../../components/StatusBadge";
 import { resolveAvatarUrl } from "../../utils/cdn";
+import { formatTimeFirstDate } from "../../utils/format";
 
 export default function PropertiesTable({
   items, loading,
@@ -110,7 +111,7 @@ export default function PropertiesTable({
                     <div className="grid gap-1">
                       <div>
                         <span className="text-xs uppercase tracking-wide text-slate-400"></span><br />
-                        {formatDateTime(p.createdAt)}
+                        {formatTimeFirstDate(p.createdAt)}
                       </div>
                     </div>
                   </td>

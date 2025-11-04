@@ -1,5 +1,5 @@
 import { getInvoiceStatusMeta } from "./constants";
-import { formatCurrency, formatDate, formatDateTime } from "../../utils/format";
+import { formatCurrency, formatDate, formatTimeFirstDate } from "../../utils/format";
 
 export default function InvoiceTable({
   invoices = [],
@@ -49,6 +49,19 @@ export default function InvoiceTable({
               const booking = invoice.booking || {};
               const property = booking.property || {};
               const isHighlighted = invoice.invoiceId === highlightInvoiceId;
+              const totalPrice = invoice.totalPrice ?? invoice.total;
+              const cancellationFeeDisplay =
+                invoice.cancellationFee == null ? "-" : formatCurrency(invoice.cancellationFee);
+              const refundableAmountDisplay =
+                invoice.refundableAmount == null ? "-" : formatCurrency(invoice.refundableAmount);
+              const timeline = [
+                { label: "Phát hành", value: invoice.issuedAt },
+                { label: "Đến hạn", value: invoice.dueAt },
+                { label: "Thanh toán", value: invoice.paidAt },
+                { label: "Hủy", value: invoice.cancelledAt },
+                { label: "Yêu cầu hoàn", value: invoice.refundRequestedAt },
+                { label: "Hoàn tiền", value: invoice.refundConfirmedAt },
+              ].filter(({ value }) => value != null);
 
               return (
                 <tr
@@ -59,7 +72,9 @@ export default function InvoiceTable({
                   <td className="px-4 py-4 align-top">
                     <div className="space-y-1 text-sm text-slate-700">
                       <div className="font-semibold text-slate-800">{invoice.invoiceNo || invoice.invoiceId}</div>
-                      <div className="text-xs text-slate-500">Tổng cộng: {formatCurrency(invoice.total)}</div>
+                      <div className="text-xs text-slate-500">Tổng cộng: {formatCurrency(totalPrice)}</div>
+                      <div className="text-xs text-slate-500">Phí hủy: {cancellationFeeDisplay}</div>
+                      <div className="text-xs text-slate-500">Số tiền hoàn: {refundableAmountDisplay}</div>
                       {invoice.discount ? (
                         <div className="text-xs text-rose-500">Giảm giá: {formatCurrency(invoice.discount)}</div>
                       ) : null}
@@ -95,11 +110,11 @@ export default function InvoiceTable({
 
                   <td className="px-4 py-4 align-top">
                     <div className="space-y-1 text-xs text-slate-500">
-                      <div>Phát hành: <span className="font-medium text-slate-700">{formatDateTime(invoice.issuedAt)}</span></div>
-                      <div>Đến hạn: <span className="font-medium text-slate-700">{formatDateTime(invoice.dueAt)}</span></div>
-                      <div>Thanh toán: <span className="font-medium text-slate-700">{formatDateTime(invoice.paidAt)}</span></div>
-                      <div>Tạo lúc: <span className="font-medium text-slate-700">{formatDateTime(invoice.createdAt)}</span></div>
-                      <div>Cập nhật: <span className="font-medium text-slate-700">{formatDateTime(invoice.updatedAt)}</span></div>
+                      {timeline.map(({ label, value }) => (
+                        <div key={label}>
+                          {label}: <span className="font-medium text-slate-700">{formatTimeFirstDate(value)}</span>
+                        </div>
+                      ))}
                     </div>
                   </td>
 
@@ -109,6 +124,9 @@ export default function InvoiceTable({
                         {statusMeta.label}
                       </span>
                       <p className="text-xs text-slate-500 max-w-[180px]">{statusMeta.description}</p>
+                      {invoice.cancellationReason ? (
+                        <p className="text-xs text-rose-500 max-w-[180px]">Lý do hủy: {invoice.cancellationReason}</p>
+                      ) : null}
                     </div>
                   </td>
 
