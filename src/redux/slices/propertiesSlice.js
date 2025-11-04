@@ -74,6 +74,19 @@ export const updatePropertyStatus = createAsyncThunk(
   }
 );
 
+const formatDateInput = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const today = new Date();
+const defaultCreatedTo = formatDateInput(today);
+const monthAgo = new Date(today);
+monthAgo.setMonth(monthAgo.getMonth() - 1);
+const defaultCreatedFrom = formatDateInput(monthAgo);
+
 const slice = createSlice({
   name: "properties",
   initialState: {
@@ -84,8 +97,8 @@ const slice = createSlice({
     totalElements: 0,
     status: "",   // '', 'PENDING', 'APPROVED', 'REJECTED', 'INACTIVE'
     q: "",
-    createdFrom: "",
-    createdTo: "",
+    createdFrom: defaultCreatedFrom,
+    createdTo: defaultCreatedTo,
 
     loading: false,
     error: null,

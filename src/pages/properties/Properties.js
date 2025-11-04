@@ -97,6 +97,20 @@ export default function Properties() {
     await dispatch(deleteProperty(row.propertyId));
   };
 
+  const handleCreatedFromChange = (value) => {
+    dispatch(setCreatedFrom(value));
+    if (value && createdTo && value > createdTo) {
+      dispatch(setCreatedTo(value));
+    }
+  };
+
+  const handleCreatedToChange = (value) => {
+    dispatch(setCreatedTo(value));
+    if (value && createdFrom && value < createdFrom) {
+      dispatch(setCreatedFrom(value));
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -128,8 +142,8 @@ export default function Properties() {
         onStatusChange={(st) => dispatch(setStatus(st))}
         createdFrom={createdFrom}
         createdTo={createdTo}
-        onCreatedFromChange={(v) => dispatch(setCreatedFrom(v))}
-        onCreatedToChange={(v) => dispatch(setCreatedTo(v))}
+        onCreatedFromChange={handleCreatedFromChange}
+        onCreatedToChange={handleCreatedToChange}
       />
 
       {/* Table */}
