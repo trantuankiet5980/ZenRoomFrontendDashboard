@@ -4,7 +4,7 @@ const STATUS_OPTIONS = [
   { value: "ALL", label: "Tất cả" },
   { value: "ACTIVE", label: "Đang hoạt động" },
   { value: "INACTIVE", label: "Không hoạt động" },
-  { value: "BANNED", label: "Đã cấm" },
+  { value: "BANNED", label: "Đã chặn" },
   { value: "PENDING_DELETE", label: "Chờ xoá" },
   { value: "DELETED", label: "Đã xoá" },
 ];

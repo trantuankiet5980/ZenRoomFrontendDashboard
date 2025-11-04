@@ -50,6 +50,7 @@ export default function InvoiceTable({
               const property = booking.property || {};
               const isHighlighted = invoice.invoiceId === highlightInvoiceId;
               const totalPrice = invoice.totalPrice ?? invoice.total;
+              const showRefundInfo = invoice.status === "REFUND_PENDING";
               const cancellationFeeDisplay =
                 invoice.cancellationFee == null ? "-" : formatCurrency(invoice.cancellationFee);
               const refundableAmountDisplay =
@@ -72,9 +73,13 @@ export default function InvoiceTable({
                   <td className="px-4 py-4 align-top">
                     <div className="space-y-1 text-sm text-slate-700">
                       <div className="font-semibold text-slate-800">{invoice.invoiceNo || invoice.invoiceId}</div>
-                      <div className="text-xs text-slate-500">Tổng cộng: {formatCurrency(totalPrice)}</div>
-                      <div className="text-xs text-slate-500">Phí hủy: {cancellationFeeDisplay}</div>
-                      <div className="text-xs text-slate-500">Số tiền hoàn: {refundableAmountDisplay}</div>
+                      <div className="text-xs text-slate-500">Tổng tiền thuê: {formatCurrency(totalPrice)}</div>
+                      {showRefundInfo ? (
+                        <>
+                          <div className="text-xs text-slate-500">Phí hủy: {cancellationFeeDisplay}</div>
+                          <div className="text-xs text-slate-500">Số tiền hoàn: {refundableAmountDisplay}</div>
+                        </>
+                      ) : null}
                       {invoice.discount ? (
                         <div className="text-xs text-rose-500">Giảm giá: {formatCurrency(invoice.discount)}</div>
                       ) : null}
@@ -103,7 +108,7 @@ export default function InvoiceTable({
                       <div className="font-semibold text-slate-800">{invoice.propertyTitle || property?.title || "—"}</div>
                       <div className="text-xs text-slate-500">{invoice.propertyAddressText || property?.address?.addressFull || "—"}</div>
                       <div className="text-xs text-slate-500">
-                        Thời gian: {formatDate(booking.startDate)} → {formatDate(booking.endDate)}
+                        Thời gian thuê: {formatDate(booking.startDate)} → {formatDate(booking.endDate)}
                       </div>
                     </div>
                   </td>

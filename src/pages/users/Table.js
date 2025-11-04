@@ -153,14 +153,7 @@ export default function UsersTable({
                         onClick={() => onBan?.(user)}
                         className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        Cấm
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete?.(user)}
-                        className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 transition hover:border-rose-300 hover:bg-rose-50"
-                      >
-                        Xoá
+                        Chặn
                       </button>
                     </div>
                   </td>

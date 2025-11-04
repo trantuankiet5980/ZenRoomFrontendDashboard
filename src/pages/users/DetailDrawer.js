@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import StatusBadge from "../../components/StatusBadge";
 import { resolveAvatarUrl } from "../../utils/cdn";
+import { formatTimeFirstDate } from "../../utils/format";
 
 const GENDER_OPTIONS = [
   { value: "MALE", label: "Nam" },
@@ -238,15 +239,15 @@ export default function UserDetailDrawer({
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Hoạt động tài khoản</h3>
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-500">Tạo lúc</span>
-                  <span className="font-medium text-slate-700">{formatDateTime(createdAt)}</span>
+                  <span className="font-medium text-slate-700">{formatTimeFirstDate(createdAt)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-500">Cập nhật cuối</span>
-                  <span className="font-medium text-slate-700">{formatDateTime(updatedAt)}</span>
+                  <span className="font-medium text-slate-700">{formatTimeFirstDate(updatedAt)}</span>
                 </div>
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-500">Đăng nhập cuối</span>
-                  <span className="font-medium text-slate-700">{formatDateTime(lastLogin)}</span>
+                  <span className="font-medium text-slate-700">{formatTimeFirstDate(lastLogin)}</span>
                 </div>
                 {(followers != null || following != null) && (
                   <div className="flex justify-between gap-2 text-xs text-slate-500">
@@ -264,20 +265,20 @@ export default function UserDetailDrawer({
                 )}
                 {user.banReason && user.status === "BANNED" && (
                   <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Lý do cấm</span>
+                    <span className="text-slate-500">Lý do chặn</span>
                     <span className="text-right font-medium text-rose-600">{user.banReason}</span>
                   </div>
                 )}
                 {user.deleteRequestedAt && (
                   <div className="flex justify-between gap-2">
                     <span className="text-slate-500">Yêu cầu xoá</span>
-                    <span className="font-medium text-slate-700">{formatDateTime(user.deleteRequestedAt)}</span>
+                    <span className="font-medium text-slate-700">{formatTimeFirstDate(user.deleteRequestedAt)}</span>
                   </div>
                 )}
                 {user.deleteEffectiveAt && (
                   <div className="flex justify-between gap-2">
                     <span className="text-slate-500">Xoá vào</span>
-                    <span className="font-medium text-slate-700">{formatDateTime(user.deleteEffectiveAt)}</span>
+                    <span className="font-medium text-slate-700">{formatTimeFirstDate(user.deleteEffectiveAt)}</span>
                   </div>
                 )}
               </section>
@@ -301,15 +302,7 @@ export default function UserDetailDrawer({
               disabled={!user || user.status === "BANNED" || saving}
               className="flex-1 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Cấm người dùng
-            </button>
-            <button
-              type="button"
-              onClick={() => onDelete?.()}
-              disabled={!user || user.status === "DELETED" || saving}
-              className="flex-1 rounded-xl border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-600 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Xoá tài khoản
+              Chặn người dùng
             </button>
           </div>
           <button
@@ -372,7 +365,7 @@ function statusLabel(status) {
     case "INACTIVE":
       return "Không hoạt động";
     case "BANNED":
-      return "Đã bị cấm";
+      return "Đã bị chặn";
     case "DELETED":
       return "Đã xoá";
     case "PENDING_DELETE":
