@@ -12,7 +12,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         open={openSec.overview}
         onToggle={() => onToggle("overview")}
       >
-        <Item to="/" label="Dashboard" labelCls={labelCls} onNavigate={onNavigate} />
+        <Item to="/" label="Bảng điều khiển" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
 
       {/* Quản lý người dùng */}
@@ -22,10 +22,10 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         open={openSec.users}
         onToggle={() => onToggle("users")}
       >
-        <Item to="/users" label="Users" labelCls={labelCls} onNavigate={onNavigate} />
+        <Item to="/users" label="Người dùng" labelCls={labelCls} onNavigate={onNavigate} />
         <Item to="/chat" label="Nhắn tin" labelCls={labelCls} onNavigate={onNavigate} />
-        <Item to="/roles" label="Roles" labelCls={labelCls} disabled />
-        <Item to="/user-logs" label="Logs" labelCls={labelCls} onNavigate={onNavigate} />
+        {/* <Item to="/roles" label="Vai trò" labelCls={labelCls} disabled /> */}
+        <Item to="/user-logs" label="Nhật ký hoạt động" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
 
       {/* Bài đăng */}
@@ -35,7 +35,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         open={openSec.properties}
         onToggle={() => onToggle("properties")}
       >
-        <Item to="/properties" label="Properties" labelCls={labelCls} onNavigate={onNavigate} />
+        <Item to="/properties" label="Bài đăng" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
 
       {/* Đặt chỗ & Thu chi */}
@@ -45,9 +45,9 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         open={openSec.bookings}
         onToggle={() => onToggle("bookings")}
       >
-        <Item to="/bookings" label="Bookings" labelCls={labelCls} onNavigate={onNavigate} />
+        {/* <Item to="/bookings" label="Đặt phòng" labelCls={labelCls} onNavigate={onNavigate} /> */}
         {/* <Item to="/contracts" label="Contracts" labelCls={labelCls} onNavigate={onNavigate} /> */}
-        <Item to="/invoices" label="Invoices" labelCls={labelCls} onNavigate={onNavigate} />
+        <Item to="/invoices" label="Hóa đơn" labelCls={labelCls} onNavigate={onNavigate} />
         {/* <Item to="/payments" label="Payments" labelCls={labelCls} onNavigate={onNavigate} /> */}
       </Section>
 
@@ -58,9 +58,9 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         open={openSec.content}
         onToggle={() => onToggle("content")}
       >
-        <Item to="/discount-codes" label="Discount Codes" labelCls={labelCls} onNavigate={onNavigate} />
-        <Item to="/reviews" label="Reviews" labelCls={labelCls} onNavigate={onNavigate} />
-        <Item to="/reports" label="Reports" labelCls={labelCls} onNavigate={onNavigate} />
+        <Item to="/discount-codes" label="Mã giảm giá" labelCls={labelCls} onNavigate={onNavigate} />
+        {/* <Item to="/reviews" label="Reviews" labelCls={labelCls} onNavigate={onNavigate} /> */}
+        <Item to="/reports" label="Báo cáo" labelCls={labelCls} onNavigate={onNavigate} />
       </Section>
     </nav>
   );

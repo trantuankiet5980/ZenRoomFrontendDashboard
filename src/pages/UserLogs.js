@@ -5,12 +5,20 @@ import PageSection from "../components/PageSection";
 import UserLogsFilters from "./logs/Filters";
 import UserLogsTable from "./logs/Table";
 import { fetchUserLogs, clearUserLogsError } from "../redux/slices/userLogsSlice";
+import { formatDateInput } from "../utils/format";
 import { showToast } from "../utils/toast";
 
-const createInitialFilters = () => ({
-  fromDate: "",
-  toDate: "",
-});
+const createInitialFilters = () => {
+  const today = new Date();
+  const toDate = formatDateInput(today);
+  const monthAgo = new Date(today);
+  monthAgo.setMonth(monthAgo.getMonth() - 1);
+
+  return {
+    fromDate: formatDateInput(monthAgo),
+    toDate,
+  };
+};
 
 export default function UserLogs() {
   const dispatch = useDispatch();
