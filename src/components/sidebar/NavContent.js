@@ -40,7 +40,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
 
       {/* Đặt chỗ & Thu chi */}
       <Section
-        title="Đặt phòng/Căn hộ & Thu chi"
+        title="Thu chi"
         collapsed={collapsed}
         open={openSec.bookings}
         onToggle={() => onToggle("bookings")}
