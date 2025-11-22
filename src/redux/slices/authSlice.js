@@ -8,7 +8,7 @@ export const loginThunk = createAsyncThunk(
   "auth/login",
   async ({ phoneNumber, password }, { rejectWithValue }) => {
     try {
-      const { data } = await axiosInstance.post("/v1/auth/login", { phoneNumber, password });
+      const { data } = await axiosInstance.post("/v1/auth/sign-in", { phoneNumber, password });
       // { success, message, token, role, userId, fullName, expiresAt }
       if (!data?.token) throw new Error(data?.message || "No token");
       return data;

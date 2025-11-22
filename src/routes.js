@@ -13,6 +13,7 @@ import Reviews from "./pages/Reviews";
 import Reports from "./pages/Reports";
 import Chat from "./pages/Chat";
 import UserLogs from "./pages/UserLogs";
+import LandlordPayouts from "./pages/LandlordPayouts";
 
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -38,6 +39,7 @@ const routes = [
           // { path: "contracts", element: <Contracts /> },
           // { path: "payments", element: <Payments /> },
           { path: "invoices", element: <Invoices /> },
+          { path: "landlord-payouts", element: <LandlordPayouts /> },
           { path: "discount-codes", element: <DiscountCodes /> },
           { path: "reviews", element: <Reviews /> },
           { path: "reports", element: <Reports /> },

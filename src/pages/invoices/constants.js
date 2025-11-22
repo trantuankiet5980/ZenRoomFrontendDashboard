@@ -1,9 +1,9 @@
 export const INVOICE_STATUS_META = {
-  DRAFT: {
-    label: "Nháp",
-    description: "Hóa đơn đang được chuẩn bị, chưa phát hành",
-    className: "bg-slate-100 text-slate-700 border-slate-200",
-  },
+  // DRAFT: {
+  //   label: "Nháp",
+  //   description: "Hóa đơn đang được chuẩn bị, chưa phát hành",
+  //   className: "bg-slate-100 text-slate-700 border-slate-200",
+  // },
   ISSUED: {
     label: "Đã phát hành",
     description: "Đã phát hành và chờ thanh toán",
@@ -33,7 +33,7 @@ export const INVOICE_STATUS_META = {
 
 export const INVOICE_STATUS_OPTIONS = [
   { value: "ALL", label: "Tất cả" },
-  { value: "DRAFT", label: INVOICE_STATUS_META.DRAFT.label },
+  // { value: "DRAFT", label: INVOICE_STATUS_META.DRAFT.label },
   { value: "ISSUED", label: INVOICE_STATUS_META.ISSUED.label },
   { value: "PAID", label: INVOICE_STATUS_META.PAID.label },
   { value: "REFUND_PENDING", label: INVOICE_STATUS_META.REFUND_PENDING.label },
