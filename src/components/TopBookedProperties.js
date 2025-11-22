@@ -49,7 +49,7 @@ export default function TopBookedProperties({
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="text-sm font-medium text-slate-700">
-            Top bất động sản được đặt nhiều nhất
+            Top 10 phòng được đặt nhiều nhất
           </div>
           <div className="text-xs text-slate-500">
             Tổng lượt đặt: {formatNumber(totalBookings)} • Tổng ngày đặt: {formatNumber(totalBookedDays)}
