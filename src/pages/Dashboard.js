@@ -250,6 +250,8 @@ export default function Dashboard() {
     setTopFilters((prev) => ({ ...prev, ...patch }));
   };
   const totalRevenue = Number(overview?.totalRevenue ?? 0);
+  const landlordPayout = Number(overview?.landlordPayout ?? 0);
+  const platformFee = Number(overview?.platformFee ?? 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -258,7 +260,7 @@ export default function Dashboard() {
         <p className="text-slate-500">Tổng quan hệ thống</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <StatCard
           title="Tổng người dùng"
           value={overview.totalUsers ?? 0}
@@ -267,6 +269,8 @@ export default function Dashboard() {
         <StatCard title="Chủ nhà (Landlords)" value={overview.landlords ?? 0} />
         <StatCard title="Khách thuê (Tenants)" value={overview.tenants ?? 0} />
         <StatCard title="Tổng doanh thu" value={totalRevenue.toLocaleString("vi-VN") + "₫"} />
+        <StatCard title="Thanh toán tới chủ nhà" value={landlordPayout.toLocaleString("vi-VN") + "₫"} />
+        <StatCard title="Phí nền tảng" value={platformFee.toLocaleString("vi-VN") + "₫"} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

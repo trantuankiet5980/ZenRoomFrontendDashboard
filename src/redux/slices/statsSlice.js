@@ -94,6 +94,8 @@ const slice = createSlice({
       completedBookings: 0,
       cancelledBookings: 0,
       totalRevenue: 0,
+      landlordPayout: 0,
+      platformFee: 0,
     },
     userSummary: {
       period: "MONTH",
