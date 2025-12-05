@@ -51,7 +51,7 @@ export default function NavContent({ collapsed, openSec, onToggle, onNavigate })
         {/* <Item to="/payments" label="Payments" labelCls={labelCls} onNavigate={onNavigate} /> */}
         <Item
           to="/landlord-payouts"
-          label="Chi trả chủ nhà"
+          label="Quản lý doanh thu"
           labelCls={labelCls}
           onNavigate={onNavigate}
         />

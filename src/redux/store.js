@@ -10,6 +10,8 @@ import chatReducer from "./slices/chatSlice";
 import userLogsReducer from "./slices/userLogsSlice";
 import reportsReducer from "./slices/reportsSlice";
 import landlordPayoutsReducer from "./slices/landlordPayoutsSlice";
+import adminWalletReducer from "./slices/adminWalletSlice";
+import landlordMonthlyPayoutsReducer from "./slices/landlordMonthlyPayoutsSlice";
 
 const store = configureStore({
   reducer: {
@@ -24,6 +26,8 @@ const store = configureStore({
     userLogs: userLogsReducer,
     reports: reportsReducer,
     landlordPayouts: landlordPayoutsReducer,
+    adminWallet: adminWalletReducer,
+    landlordMonthlyPayouts: landlordMonthlyPayoutsReducer,
   },
 });
 
